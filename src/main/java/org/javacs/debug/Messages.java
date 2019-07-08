@@ -41,8 +41,6 @@ class Response extends ProtocolMessage {
     String command;
     /** Contains error message if success == false. */
     String message;
-    /** Contains request result if success is true and optional error details if success is false. */
-    JsonObject body;
 }
 
 /** On error (whenever 'success' is false), the body can provide more details. */
@@ -301,7 +299,6 @@ class CapabilitiesEventBody {
  * client.
  */
 class RunInTerminalRequest extends Request {
-    // command: 'runInTerminal';
     RunInTerminalRequestArguments arguments;
 }
 
@@ -340,7 +337,6 @@ class RunInTerminalResponseBody {
  * only be sent once.
  */
 class InitializeRequest extends Request {
-    // command: 'initialize';
     InitializeRequestArguments arguments;
 }
 
@@ -380,27 +376,11 @@ class InitializeResponse extends Response {
 }
 
 /**
- * ConfigurationDone request; value of command field is 'configurationDone'. The client of the debug protocol must send
- * this request at the end of the sequence of configuration requests (which was started by the 'initialized' event).
- */
-class ConfigurationDoneRequest extends Request {
-    // command: 'configurationDone';
-    ConfigurationDoneArguments arguments;
-}
-
-/** Arguments for 'configurationDone' request. */
-class ConfigurationDoneArguments {}
-
-/** Response to 'configurationDone' request. This is just an acknowledgement, so no body field is required. */
-class ConfigurationDoneResponse extends Response {}
-
-/**
  * Launch request; value of command field is 'launch'. The launch request is sent from the client to the debug adapter
  * to start the debuggee with or without debugging (if 'noDebug' is true). Since launching is debugger/runtime specific,
  * the arguments for this request are not part of this specification.
  */
 class LaunchRequest extends Request {
-    // command: 'launch';
     LaunchRequestArguments arguments;
 }
 
@@ -413,10 +393,9 @@ class LaunchRequestArguments {
      * 'terminated' event. The client should leave the data intact.
      */
     JsonObject __restart;
-}
 
-/** Response to 'launch' request. This is just an acknowledgement, so no body field is required. */
-class LaunchResponse extends Response {}
+    String main;
+}
 
 /**
  * Attach request; value of command field is 'attach'. The attach request is sent from the client to the debug adapter
@@ -424,7 +403,6 @@ class LaunchResponse extends Response {}
  * request are not part of this specification.
  */
 class AttachRequest extends Request {
-    // command: 'attach';
     AttachRequestArguments arguments;
 }
 
@@ -437,26 +415,6 @@ class AttachRequestArguments {
     JsonObject __restart;
 }
 
-/** Response to 'attach' request. This is just an acknowledgement, so no body field is required. */
-class AttachResponse extends Response {}
-
-/**
- * Restart request; value of command field is 'restart'. Restarts a debug session. If the capability
- * 'supportsRestartRequest' is missing or has the value false, the client will implement 'restart' by terminating the
- * debug adapter first and then launching it anew. A debug adapter can override this default behaviour by implementing a
- * restart request and setting the capability 'supportsRestartRequest' to true.
- */
-class RestartRequest extends Request {
-    // command: 'restart';
-    RestartArguments arguments;
-}
-
-/** Arguments for 'restart' request. */
-class RestartArguments {}
-
-/** Response to 'restart' request. This is just an acknowledgement, so no body field is required. */
-class RestartResponse extends Response {}
-
 /**
  * Disconnect request; value of command field is 'disconnect'. The 'disconnect' request is sent from the client to the
  * debug adapter in order to stop debugging. It asks the debug adapter to disconnect from the debuggee and to terminate
@@ -465,7 +423,6 @@ class RestartResponse extends Response {}
  * debuggee. This behavior can be controlled with the 'terminateDebuggee' argument (if supported by the debug adapter).
  */
 class DisconnectRequest extends Request {
-    // command: 'disconnect';
     DisconnectArguments arguments;
 }
 
@@ -481,15 +438,11 @@ class DisconnectArguments {
     Boolean terminateDebuggee;
 }
 
-/** Response to 'disconnect' request. This is just an acknowledgement, so no body field is required. */
-class DisconnectResponse extends Response {}
-
 /**
  * Terminate request; value of command field is 'terminate'. The 'terminate' request is sent from the client to the
  * debug adapter in order to give the debuggee a chance for terminating itself.
  */
 class TerminateRequest extends Request {
-    // command: 'terminate';
     TerminateArguments arguments;
 }
 
@@ -499,16 +452,12 @@ class TerminateArguments {
     Boolean restart;
 }
 
-/** Response to 'terminate' request. This is just an acknowledgement, so no body field is required. */
-class TerminateResponse extends Response {}
-
 /**
  * SetBreakpoints request; value of command field is 'setBreakpoints'. Sets multiple breakpoints for a single source and
  * clears all previous breakpoints in that source. To clear all breakpoint for a source, specify an empty array. When a
  * breakpoint is hit, a 'stopped' event (with reason 'breakpoint') is generated.
  */
 class SetBreakpointsRequest extends Request {
-    // command: 'setBreakpoints';
     SetBreakpointsArguments arguments;
 }
 
@@ -518,8 +467,6 @@ class SetBreakpointsArguments {
     Source source;
     /** The code locations of the breakpoints. */
     SourceBreakpoint[] breakpoints;
-    /** Deprecated: The code locations of the breakpoints. */
-    Integer lines[];
     /**
      * A value of true indicates that the underlying source has been modified which results in new breakpoint locations.
      */
@@ -549,7 +496,6 @@ class SetBreakpointsResponseBody {
  * breakpoint is hit, a 'stopped' event (with reason 'function breakpoint') is generated.
  */
 class SetFunctionBreakpointsRequest extends Request {
-    // command: 'setFunctionBreakpoints';
     SetFunctionBreakpointsArguments arguments;
 }
 
@@ -577,7 +523,6 @@ class SetFunctionBreakpointsResponseBody {
  * reason 'exception').
  */
 class SetExceptionBreakpointsRequest extends Request {
-    // command: 'setExceptionBreakpoints';
     SetExceptionBreakpointsArguments arguments;
 }
 
@@ -589,15 +534,11 @@ class SetExceptionBreakpointsArguments {
     ExceptionOptions[] exceptionOptions;
 }
 
-/** Response to 'setExceptionBreakpoints' request. This is just an acknowledgement, so no body field is required. */
-class SetExceptionBreakpointsResponse extends Response {}
-
 /**
  * DataBreakpointInfo request; value of command field is 'dataBreakpointInfo'. Obtains information on a possible data
  * breakpoint that could be set on an expression or variable.
  */
 class DataBreakpointInfoRequest extends Request {
-    // command: 'dataBreakpointInfo';
     DataBreakpointInfoArguments arguments;
 }
 
@@ -640,7 +581,6 @@ class DataBreakpointInfoResponseBody {
  * 'stopped' event (with reason 'data breakpoint') is generated.
  */
 class SetDataBreakpointsRequest extends Request {
-    // command: 'setDataBreakpoints';
     SetDataBreakpointsArguments arguments;
 }
 
@@ -667,7 +607,6 @@ class SetDataBreakpointsResponseBody {
 
 /** Continue request; value of command field is 'continue'. The request starts the debuggee to run again. */
 class ContinueRequest extends Request {
-    // command: 'continue';
     ContinueArguments arguments;
 }
 
@@ -698,7 +637,6 @@ class ContinueResponseBody {
  * adapter first sends the response and then a 'stopped' event (with reason 'step') after the step has completed.
  */
 class NextRequest extends Request {
-    // command: 'next';
     NextArguments arguments;
 }
 
@@ -707,9 +645,6 @@ class NextArguments {
     /** Execute 'next' for this thread. */
     int threadId;
 }
-
-/** Response to 'next' request. This is just an acknowledgement, so no body field is required. */
-class NextResponse extends Response {}
 
 /**
  * StepIn request; value of command field is 'stepIn'. The request starts the debuggee to step into a function/method if
@@ -720,7 +655,6 @@ class NextResponse extends Response {}
  * 'stepInTargets' request.
  */
 class StepInRequest extends Request {
-    // command: 'stepIn';
     StepInArguments arguments;
 }
 
@@ -732,15 +666,11 @@ class StepInArguments {
     Integer targetId;
 }
 
-/** Response to 'stepIn' request. This is just an acknowledgement, so no body field is required. */
-class StepInResponse extends Response {}
-
 /**
  * StepOut request; value of command field is 'stepOut'. The request starts the debuggee to run again for one step. The
  * debug adapter first sends the response and then a 'stopped' event (with reason 'step') after the step has completed.
  */
 class StepOutRequest extends Request {
-    // command: 'stepOut';
     StepOutArguments arguments;
 }
 
@@ -750,16 +680,12 @@ class StepOutArguments {
     int threadId;
 }
 
-/** Response to 'stepOut' request. This is just an acknowledgement, so no body field is required. */
-class StepOutResponse extends Response {}
-
 /**
  * StepBack request; value of command field is 'stepBack'. The request starts the debuggee to run one step backwards.
  * The debug adapter first sends the response and then a 'stopped' event (with reason 'step') after the step has
  * completed. Clients should only call this request if the capability 'supportsStepBack' is true.
  */
 class StepBackRequest extends Request {
-    // command: 'stepBack';
     StepBackArguments arguments;
 }
 
@@ -769,15 +695,11 @@ class StepBackArguments {
     int threadId;
 }
 
-/** Response to 'stepBack' request. This is just an acknowledgement, so no body field is required. */
-class StepBackResponse extends Response {}
-
 /**
  * ReverseContinue request; value of command field is 'reverseContinue'. The request starts the debuggee to run
  * backward. Clients should only call this request if the capability 'supportsStepBack' is true.
  */
 class ReverseContinueRequest extends Request {
-    // command: 'reverseContinue';
     ReverseContinueArguments arguments;
 }
 
@@ -787,16 +709,12 @@ class ReverseContinueArguments {
     int threadId;
 }
 
-/** Response to 'reverseContinue' request. This is just an acknowledgement, so no body field is required. */
-class ReverseContinueResponse extends Response {}
-
 /**
  * RestartFrame request; value of command field is 'restartFrame'. The request restarts execution of the specified
  * stackframe. The debug adapter first sends the response and then a 'stopped' event (with reason 'restart') after the
  * restart has completed.
  */
 class RestartFrameRequest extends Request {
-    // command: 'restartFrame';
     RestartFrameArguments arguments;
 }
 
@@ -806,9 +724,6 @@ class RestartFrameArguments {
     int frameId;
 }
 
-/** Response to 'restartFrame' request. This is just an acknowledgement, so no body field is required. */
-class RestartFrameResponse extends Response {}
-
 /**
  * Goto request; value of command field is 'goto'. The request sets the location where the debuggee will continue to
  * run. This makes it possible to skip the execution of code or to executed code again. The code between the current
@@ -816,7 +731,6 @@ class RestartFrameResponse extends Response {}
  * 'stopped' event with reason 'goto'.
  */
 class GotoRequest extends Request {
-    // command: 'goto';
     GotoArguments arguments;
 }
 
@@ -828,15 +742,11 @@ class GotoArguments {
     int targetId;
 }
 
-/** Response to 'goto' request. This is just an acknowledgement, so no body field is required. */
-class GotoResponse extends Response {}
-
 /**
  * Pause request; value of command field is 'pause'. The request suspenses the debuggee. The debug adapter first sends
  * the response and then a 'stopped' event (with reason 'pause') after the thread has been paused successfully.
  */
 class PauseRequest extends Request {
-    // command: 'pause';
     PauseArguments arguments;
 }
 
@@ -846,15 +756,11 @@ class PauseArguments {
     int threadId;
 }
 
-/** Response to 'pause' request. This is just an acknowledgement, so no body field is required. */
-class PauseResponse extends Response {}
-
 /**
  * StackTrace request; value of command field is 'stackTrace'. The request returns a stacktrace from the current
  * execution state.
  */
 class StackTraceRequest extends Request {
-    // command: 'stackTrace';
     StackTraceArguments arguments;
 }
 
@@ -890,7 +796,6 @@ class StackTraceResponseBody {
  * ID.
  */
 class ScopesRequest extends Request {
-    // command: 'scopes';
     ScopesArguments arguments;
 }
 
@@ -915,7 +820,6 @@ class ScopesResponseBody {
  * reference. An optional filter can be used to limit the fetched children to either named or indexed children.
  */
 class VariablesRequest extends Request {
-    // command: 'variables';
     VariablesArguments arguments;
 }
 
@@ -951,7 +855,6 @@ class VariablesResponseBody {
  * container to a new value.
  */
 class SetVariableRequest extends Request {
-    // command: 'setVariable';
     SetVariableArguments arguments;
 }
 
@@ -999,7 +902,6 @@ class SetVariableResponseBody {
  * reference.
  */
 class SourceRequest extends Request {
-    // command: 'source';
     SourceArguments arguments;
 }
 
@@ -1026,11 +928,6 @@ class SourceResponseBody {
     String mimeType;
 }
 
-/** Threads request; value of command field is 'threads'. The request retrieves a list of all threads. */
-class ThreadsRequest extends Request {
-    // command: 'threads';
-}
-
 /** Response to 'threads' request. */
 class ThreadsResponse extends Response {
     ThreadsResponseBody body;
@@ -1046,7 +943,6 @@ class ThreadsResponseBody {
  * given ids.
  */
 class TerminateThreadsRequest extends Request {
-    // command: 'terminateThreads';
     TerminateThreadsArguments arguments;
 }
 
@@ -1056,15 +952,11 @@ class TerminateThreadsArguments {
     Integer threadIds[];
 }
 
-/** Response to 'terminateThreads' request. This is just an acknowledgement, so no body field is required. */
-class TerminateThreadsResponse extends Response {}
-
 /**
  * Modules request; value of command field is 'modules'. Modules can be retrieved from the debug adapter with the
  * ModulesRequest which can either return all modules or a range of modules to support paging.
  */
 class ModulesRequest extends Request {
-    // command: 'modules';
     ModulesArguments arguments;
 }
 
@@ -1088,18 +980,6 @@ class ModulesResponseBody {
     Integer totalModules;
 }
 
-/**
- * LoadedSources request; value of command field is 'loadedSources'. Retrieves the set of all sources currently loaded
- * by the debugged process.
- */
-class LoadedSourcesRequest extends Request {
-    // command: 'loadedSources';
-    LoadedSourcesArguments arguments;
-}
-
-/** Arguments for 'loadedSources' request. */
-class LoadedSourcesArguments {}
-
 /** Response to 'loadedSources' request. */
 class LoadedSourcesResponse extends Response {
     LoadedSourcesResponseBody body;
@@ -1115,7 +995,6 @@ class LoadedSourcesResponseBody {
  * stack frame. The expression has access to any variables and arguments that are in scope.
  */
 class EvaluateRequest extends Request {
-    // command: 'evaluate';
     EvaluateArguments arguments;
 }
 
@@ -1177,7 +1056,6 @@ class EvaluateResponseBody {
  * that are in scope of the specified frame.
  */
 class SetExpressionRequest extends Request {
-    // command: 'setExpression';
     SetExpressionArguments arguments;
 }
 
@@ -1231,7 +1109,6 @@ class SetExpressionResponseBody {
  * called if the 'supportsStepInTargetsRequest' capability exists and is true.
  */
 class StepInTargetsRequest extends Request {
-    // command: 'stepInTargets';
     StepInTargetsArguments arguments;
 }
 
@@ -1257,7 +1134,6 @@ class StepInTargetsResponseBody {
  * called if the 'supportsGotoTargetsRequest' capability exists and is true.
  */
 class GotoTargetsRequest extends Request {
-    // command: 'gotoTargets';
     GotoTargetsArguments arguments;
 }
 
@@ -1287,7 +1163,6 @@ class GotoTargetsResponseBody {
  * exists and is true.
  */
 class CompletionsRequest extends Request {
-    // command: 'completions';
     CompletionsArguments arguments;
 }
 
@@ -1327,7 +1202,6 @@ class CompletionsResponseBody {
  * this event to be raised.
  */
 class ExceptionInfoRequest extends Request {
-    // command: 'exceptionInfo';
     ExceptionInfoArguments arguments;
 }
 
@@ -1358,7 +1232,6 @@ class ExceptionInfoResponseBody {
 
 /** ReadMemory request; value of command field is 'readMemory'. Reads bytes from memory at the provided location. */
 class ReadMemoryRequest extends Request {
-    // command: 'readMemory';
     ReadMemoryArguments arguments;
 }
 
@@ -1394,7 +1267,6 @@ class ReadMemoryResponseBody {
 
 /** Disassemble request; value of command field is 'disassemble'. Disassembles code stored at the provided location. */
 class DisassembleRequest extends Request {
-    // command: 'disassemble';
     DisassembleArguments arguments;
 }
 
