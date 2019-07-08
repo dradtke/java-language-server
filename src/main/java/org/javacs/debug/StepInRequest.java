@@ -9,5 +9,5 @@ package org.javacs.debug;
  * 'stepInTargets' request.
  */
 public class StepInRequest extends Request {
-    StepInArguments arguments;
+    public StepInArguments arguments;
 }

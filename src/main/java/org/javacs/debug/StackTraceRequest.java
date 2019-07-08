@@ -5,5 +5,5 @@ package org.javacs.debug;
  * execution state.
  */
 public class StackTraceRequest extends Request {
-    StackTraceArguments arguments;
+    public StackTraceArguments arguments;
 }

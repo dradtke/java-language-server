@@ -6,16 +6,16 @@ package org.javacs.debug;
  */
 public class ColumnDescriptor {
     /** Name of the attribute rendered in this column. */
-    String attributeName;
+    public String attributeName;
     /** Header UI label of column. */
-    String label;
+    public String label;
     /** Format to use for the rendered values in this column. TBD how the format strings looks like. */
-    String format;
+    public String format;
     /**
      * Datatype of values in this column. Defaults to 'string' if not specified. 'string' | 'number' | 'boolean' |
      * 'unixTimestampUTC'.
      */
-    String type;
+    public String type;
     /** Width of this column in characters (hint only). */
-    Integer width;
+    public Integer width;
 }

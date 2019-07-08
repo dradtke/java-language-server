@@ -5,5 +5,5 @@ package org.javacs.debug;
  * container to a new value.
  */
 public class SetVariableRequest extends Request {
-    SetVariableArguments arguments;
+    public SetVariableArguments arguments;
 }

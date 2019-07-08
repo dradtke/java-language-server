@@ -5,5 +5,5 @@ package org.javacs.debug;
  * given ids.
  */
 public class TerminateThreadsRequest extends Request {
-    TerminateThreadsArguments arguments;
+    public TerminateThreadsArguments arguments;
 }

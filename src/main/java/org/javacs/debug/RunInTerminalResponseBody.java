@@ -2,7 +2,7 @@ package org.javacs.debug;
 
 public class RunInTerminalResponseBody {
     /** The process ID. */
-    Integer processId;
+    public Integer processId;
     /** The process ID of the terminal shell. */
-    Integer shellProcessId;
+    public Integer shellProcessId;
 }

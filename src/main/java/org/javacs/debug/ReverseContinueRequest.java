@@ -5,5 +5,5 @@ package org.javacs.debug;
  * backward. Clients should only call this request if the capability 'supportsStepBack' is true.
  */
 public class ReverseContinueRequest extends Request {
-    ReverseContinueArguments arguments;
+    public ReverseContinueArguments arguments;
 }

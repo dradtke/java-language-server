@@ -6,7 +6,7 @@ import com.google.gson.JsonObject;
 public class Request extends ProtocolMessage {
     // type: 'request';
     /** The command to execute. */
-    String command;
+    public String command;
     /** Object containing arguments for the command. */
-    JsonObject arguments;
+    public JsonObject arguments;
 }

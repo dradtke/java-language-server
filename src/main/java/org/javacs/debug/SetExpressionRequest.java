@@ -6,5 +6,5 @@ package org.javacs.debug;
  * that are in scope of the specified frame.
  */
 public class SetExpressionRequest extends Request {
-    SetExpressionArguments arguments;
+    public SetExpressionArguments arguments;
 }

@@ -8,5 +8,5 @@ package org.javacs.debug;
  * debuggee. This behavior can be controlled with the 'terminateDebuggee' argument (if supported by the debug adapter).
  */
 public class DisconnectRequest extends Request {
-    DisconnectArguments arguments;
+    public DisconnectArguments arguments;
 }

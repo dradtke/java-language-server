@@ -9,5 +9,5 @@ package org.javacs.debug;
  */
 public class CapabilitiesEvent extends Event {
     // event: 'capabilities';
-    CapabilitiesEventBody body;
+    public CapabilitiesEventBody body;
 }

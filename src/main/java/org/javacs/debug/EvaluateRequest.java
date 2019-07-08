@@ -5,5 +5,5 @@ package org.javacs.debug;
  * stack frame. The expression has access to any variables and arguments that are in scope.
  */
 public class EvaluateRequest extends Request {
-    EvaluateArguments arguments;
+    public EvaluateArguments arguments;
 }

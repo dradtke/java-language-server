@@ -6,5 +6,5 @@ package org.javacs.debug;
  * called if the 'supportsGotoTargetsRequest' capability exists and is true.
  */
 public class GotoTargetsRequest extends Request {
-    GotoTargetsArguments arguments;
+    public GotoTargetsArguments arguments;
 }

@@ -13,7 +13,7 @@ public class VariablePresentationHint {
      * index range for large arrays. 'dataBreakpoint': Indicates that a data breakpoint is registered for the object.
      * etc.
      */
-    String kind;
+    public String kind;
     /**
      * Set of attributes represented as an array of strings. Before introducing additional values, try to use the listed
      * values. Values: 'static': Indicates that the object is static. 'constant': Indicates that the object is a
@@ -22,10 +22,10 @@ public class VariablePresentationHint {
      * Indicates that the object has an Object ID associated with it. 'hasSideEffects': Indicates that the evaluation
      * had side effects. etc.
      */
-    String attributes[];
+    public String[] attributes;
     /**
      * Visibility of variable. Before introducing additional values, try to use the listed values. Values: 'public',
      * 'private', 'protected', 'internal', 'final', etc.
      */
-    String visibility;
+    public String visibility;
 }

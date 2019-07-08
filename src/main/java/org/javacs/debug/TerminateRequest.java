@@ -5,5 +5,5 @@ package org.javacs.debug;
  * debug adapter in order to give the debuggee a chance for terminating itself.
  */
 public class TerminateRequest extends Request {
-    TerminateArguments arguments;
+    public TerminateArguments arguments;
 }

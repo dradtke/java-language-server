@@ -6,5 +6,5 @@ package org.javacs.debug;
  */
 public class ProcessEvent extends Event {
     // event: 'process';
-    ProcessEventBody body;
+    public ProcessEventBody body;
 }

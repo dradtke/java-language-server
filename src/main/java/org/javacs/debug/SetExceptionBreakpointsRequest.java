@@ -6,5 +6,5 @@ package org.javacs.debug;
  * reason 'exception').
  */
 public class SetExceptionBreakpointsRequest extends Request {
-    SetExceptionBreakpointsArguments arguments;
+    public SetExceptionBreakpointsArguments arguments;
 }

@@ -5,5 +5,5 @@ package org.javacs.debug;
  * reference.
  */
 public class SourceRequest extends Request {
-    SourceArguments arguments;
+    public SourceArguments arguments;
 }

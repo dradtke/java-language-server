@@ -8,5 +8,5 @@ package org.javacs.debug;
  */
 public class ContinuedEvent extends Event {
     // event: 'continued';
-    ContinuedEventBody body;
+    public ContinuedEventBody body;
 }

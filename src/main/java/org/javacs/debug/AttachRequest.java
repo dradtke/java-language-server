@@ -6,5 +6,5 @@ package org.javacs.debug;
  * request are not part of this specification.
  */
 public class AttachRequest extends Request {
-    AttachRequestArguments arguments;
+    public AttachRequestArguments arguments;
 }

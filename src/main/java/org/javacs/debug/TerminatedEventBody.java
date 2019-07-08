@@ -8,5 +8,5 @@ public class TerminatedEventBody {
      * session. The value is not interpreted by the client and passed unmodified as an attribute '__restart' to the
      * 'launch' and 'attach' requests.
      */
-    JsonObject restart;
+    public JsonObject restart;
 }

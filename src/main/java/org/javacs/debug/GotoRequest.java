@@ -7,5 +7,5 @@ package org.javacs.debug;
  * 'stopped' event with reason 'goto'.
  */
 public class GotoRequest extends Request {
-    GotoArguments arguments;
+    public GotoArguments arguments;
 }

@@ -6,5 +6,5 @@ package org.javacs.debug;
  * 'stopped' event (with reason 'data breakpoint') is generated.
  */
 public class SetDataBreakpointsRequest extends Request {
-    SetDataBreakpointsArguments arguments;
+    public SetDataBreakpointsArguments arguments;
 }

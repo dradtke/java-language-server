@@ -5,5 +5,5 @@ package org.javacs.debug;
  * adapter first sends the response and then a 'stopped' event (with reason 'step') after the step has completed.
  */
 public class NextRequest extends Request {
-    NextArguments arguments;
+    public NextArguments arguments;
 }

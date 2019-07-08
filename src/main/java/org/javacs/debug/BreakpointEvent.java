@@ -5,5 +5,5 @@ package org.javacs.debug;
  */
 public class BreakpointEvent extends Event {
     // event: 'breakpoint';
-    BreakpointEventBody body;
+    public BreakpointEventBody body;
 }

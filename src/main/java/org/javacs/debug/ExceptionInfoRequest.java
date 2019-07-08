@@ -5,5 +5,5 @@ package org.javacs.debug;
  * this event to be raised.
  */
 public class ExceptionInfoRequest extends Request {
-    ExceptionInfoArguments arguments;
+    public ExceptionInfoArguments arguments;
 }

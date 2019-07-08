@@ -6,5 +6,5 @@ package org.javacs.debug;
  * same order as the elements of the 'breakpoints' (or the deprecated 'lines') array in the arguments.
  */
 public class SetBreakpointsResponse extends Response {
-    SetBreakpointsResponseBody body;
+    public SetBreakpointsResponseBody body;
 }

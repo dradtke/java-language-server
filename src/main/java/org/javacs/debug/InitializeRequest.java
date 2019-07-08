@@ -9,5 +9,5 @@ package org.javacs.debug;
  * only be sent once.
  */
 public class InitializeRequest extends Request {
-    InitializeRequestArguments arguments;
+    public InitializeRequestArguments arguments;
 }

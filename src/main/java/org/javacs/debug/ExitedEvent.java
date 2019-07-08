@@ -5,5 +5,5 @@ package org.javacs.debug;
  */
 public class ExitedEvent extends Event {
     // event: 'exited';
-    ExitedEventBody body;
+    public ExitedEventBody body;
 }

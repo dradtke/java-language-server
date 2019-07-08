@@ -6,5 +6,5 @@ package org.javacs.debug;
  * the arguments for this request are not part of this specification.
  */
 public class LaunchRequest extends Request {
-    LaunchRequestArguments arguments;
+    public LaunchRequestArguments arguments;
 }

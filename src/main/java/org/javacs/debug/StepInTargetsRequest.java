@@ -6,5 +6,5 @@ package org.javacs.debug;
  * called if the 'supportsStepInTargetsRequest' capability exists and is true.
  */
 public class StepInTargetsRequest extends Request {
-    StepInTargetsArguments arguments;
+    public StepInTargetsArguments arguments;
 }

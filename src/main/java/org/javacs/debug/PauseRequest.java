@@ -5,5 +5,5 @@ package org.javacs.debug;
  * the response and then a 'stopped' event (with reason 'pause') after the thread has been paused successfully.
  */
 public class PauseRequest extends Request {
-    PauseArguments arguments;
+    public PauseArguments arguments;
 }

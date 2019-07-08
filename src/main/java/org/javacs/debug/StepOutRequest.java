@@ -5,5 +5,5 @@ package org.javacs.debug;
  * debug adapter first sends the response and then a 'stopped' event (with reason 'step') after the step has completed.
  */
 public class StepOutRequest extends Request {
-    StepOutArguments arguments;
+    public StepOutArguments arguments;
 }

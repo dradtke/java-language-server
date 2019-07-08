@@ -5,5 +5,5 @@ package org.javacs.debug;
  * specifies the columns to be shown in the modules view.
  */
 public class ModulesViewDescriptor {
-    ColumnDescriptor[] columns;
+    public ColumnDescriptor[] columns;
 }

@@ -6,5 +6,5 @@ package org.javacs.debug;
  * client.
  */
 public class RunInTerminalRequest extends Request {
-    RunInTerminalRequestArguments arguments;
+    public RunInTerminalRequestArguments arguments;
 }

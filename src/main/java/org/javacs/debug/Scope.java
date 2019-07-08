@@ -6,38 +6,38 @@ public class Scope {
      * Name of the scope such as 'Arguments', 'Locals', or 'Registers'. This string is shown in the UI as is and can be
      * translated.
      */
-    String name;
+    public String name;
     /**
      * An optional hint for how to present this scope in the UI. If this attribute is missing, the scope is shown with a
      * generic UI. Values: 'arguments': Scope contains method arguments. 'locals': Scope contains local variables.
      * 'registers': Scope contains registers. Only a single 'registers' scope should be returned from a 'scopes'
      * request. etc.
      */
-    String presentationHint;
+    public String presentationHint;
     /**
      * The variables of this scope can be retrieved by passing the value of variablesReference to the VariablesRequest.
      */
-    int variablesReference;
+    public int variablesReference;
     /**
      * The number of named variables in this scope. The client can use this optional information to present the
      * variables in a paged UI and fetch them in chunks.
      */
-    Integer namedVariables;
+    public Integer namedVariables;
     /**
      * The number of indexed variables in this scope. The client can use this optional information to present the
      * variables in a paged UI and fetch them in chunks.
      */
-    Integer indexedVariables;
+    public Integer indexedVariables;
     /** If true, the number of variables in this scope is large or expensive to retrieve. */
-    boolean expensive;
+    public boolean expensive;
     /** Optional source for this scope. */
-    Source source;
+    public Source source;
     /** Optional start line of the range covered by this scope. */
-    Integer line;
+    public Integer line;
     /** Optional start column of the range covered by this scope. */
-    Integer column;
+    public Integer column;
     /** Optional end line of the range covered by this scope. */
-    Integer endLine;
+    public Integer endLine;
     /** Optional end column of the range covered by this scope. */
-    Integer endColumn;
+    public Integer endColumn;
 }

@@ -6,5 +6,5 @@ package org.javacs.debug;
  * breakpoint is hit, a 'stopped' event (with reason 'function breakpoint') is generated.
  */
 public class SetFunctionBreakpointsRequest extends Request {
-    SetFunctionBreakpointsArguments arguments;
+    public SetFunctionBreakpointsArguments arguments;
 }

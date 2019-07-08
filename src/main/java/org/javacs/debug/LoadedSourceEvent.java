@@ -6,5 +6,5 @@ package org.javacs.debug;
  */
 public class LoadedSourceEvent extends Event {
     // event: 'loadedSource';
-    LoadedSourceEventBody body;
+    public LoadedSourceEventBody body;
 }

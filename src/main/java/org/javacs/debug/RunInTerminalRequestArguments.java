@@ -5,13 +5,13 @@ import java.util.Map;
 /** Arguments for 'runInTerminal' request. */
 public class RunInTerminalRequestArguments {
     /** What kind of terminal to launch. 'integrated' | 'external'. */
-    String kind;
+    public String kind;
     /** Optional title of the terminal. */
-    String title;
+    public String title;
     /** Working directory of the command. */
-    String cwd;
+    public String cwd;
     /** List of arguments. The first argument is the command to run. */
-    String[] args;
+    public String[] args;
     /** Environment key-value pairs that are added to or removed from the default environment. */
-    Map<String, String> env;
+    public Map<String, String> env;
 }

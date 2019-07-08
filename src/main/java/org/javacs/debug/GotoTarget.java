@@ -6,17 +6,17 @@ package org.javacs.debug;
  */
 public class GotoTarget {
     /** Unique identifier for a goto target. This is used in the goto request. */
-    int id;
+    public int id;
     /** The name of the goto target (shown in the UI). */
-    String label;
+    public String label;
     /** The line of the goto target. */
-    int line;
+    public int line;
     /** An optional column of the goto target. */
-    Integer column;
+    public Integer column;
     /** An optional end line of the range covered by the goto target. */
-    Integer endLine;
+    public Integer endLine;
     /** An optional end column of the range covered by the goto target. */
-    Integer endColumn;
+    public Integer endColumn;
     /** Optional memory reference for the instruction pointer value represented by this target. */
-    String instructionPointerReference;
+    public String instructionPointerReference;
 }

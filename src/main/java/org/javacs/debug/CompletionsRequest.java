@@ -6,5 +6,5 @@ package org.javacs.debug;
  * exists and is true.
  */
 public class CompletionsRequest extends Request {
-    CompletionsArguments arguments;
+    public CompletionsArguments arguments;
 }

@@ -6,5 +6,5 @@ package org.javacs.debug;
  */
 public class TerminatedEvent extends Event {
     // event: 'terminated';
-    TerminatedEventBody body;
+    public TerminatedEventBody body;
 }

@@ -6,5 +6,5 @@ package org.javacs.debug;
  * completed. Clients should only call this request if the capability 'supportsStepBack' is true.
  */
 public class StepBackRequest extends Request {
-    StepBackArguments arguments;
+    public StepBackArguments arguments;
 }

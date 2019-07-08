@@ -5,5 +5,5 @@ package org.javacs.debug;
  * breakpoint that could be set on an expression or variable.
  */
 public class DataBreakpointInfoRequest extends Request {
-    DataBreakpointInfoArguments arguments;
+    public DataBreakpointInfoArguments arguments;
 }

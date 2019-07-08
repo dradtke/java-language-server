@@ -5,5 +5,5 @@ package org.javacs.debug;
  * ModulesRequest which can either return all modules or a range of modules to support paging.
  */
 public class ModulesRequest extends Request {
-    ModulesArguments arguments;
+    public ModulesArguments arguments;
 }

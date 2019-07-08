@@ -5,5 +5,5 @@ package org.javacs.debug;
  * reference. An optional filter can be used to limit the fetched children to either named or indexed children.
  */
 public class VariablesRequest extends Request {
-    VariablesArguments arguments;
+    public VariablesArguments arguments;
 }

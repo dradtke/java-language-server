@@ -6,7 +6,7 @@ package org.javacs.debug;
  */
 public class StepInTarget {
     /** Unique identifier for a stepIn target. */
-    int id;
+    public int id;
     /** The name of the stepIn target (shown in the UI). */
-    String label;
+    public String label;
 }

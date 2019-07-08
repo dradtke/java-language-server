@@ -7,5 +7,5 @@ package org.javacs.debug;
  */
 public class StoppedEvent extends Event {
     // event: 'stopped';
-    StoppedEventBody body;
+    public StoppedEventBody body;
 }

@@ -14,31 +14,31 @@ package org.javacs.debug;
  */
 public class Module {
     /** Unique identifier for the module. */
-    String id;
+    public String id;
     /** A name of the module. */
-    String name;
+    public String name;
     /**
      * optional but recommended attributes. always try to use these first before introducing additional attributes.
      *
      * <p>Logical full path to the module. The exact definition is implementation defined, but usually this would be a
      * full path to the on-disk file for the module.
      */
-    String path;
+    public String path;
     /** True if the module is optimized. */
-    Boolean isOptimized;
+    public Boolean isOptimized;
     /** True if the module is considered 'user code' by a debugger that supports 'Just My Code'. */
-    Boolean isUserCode;
+    public Boolean isUserCode;
     /** Version of Module. */
-    String version;
+    public String version;
     /**
      * User understandable description of if symbols were found for the module (ex: 'Symbols Loaded', 'Symbols not
      * found', etc.
      */
-    String symbolStatus;
+    public String symbolStatus;
     /** Logical full path to the symbol file. The exact definition is implementation defined. */
-    String symbolFilePath;
+    public String symbolFilePath;
     /** Module created or modified. */
-    String dateTimeStamp;
+    public String dateTimeStamp;
     /** Address range covered by this module. */
-    String addressRange;
+    public String addressRange;
 }

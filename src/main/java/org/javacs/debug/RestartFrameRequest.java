@@ -6,5 +6,5 @@ package org.javacs.debug;
  * restart has completed.
  */
 public class RestartFrameRequest extends Request {
-    RestartFrameArguments arguments;
+    public RestartFrameArguments arguments;
 }

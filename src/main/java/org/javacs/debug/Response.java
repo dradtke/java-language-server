@@ -4,11 +4,11 @@ package org.javacs.debug;
 public class Response extends ProtocolMessage {
     // type: 'response';
     /** Sequence number of the corresponding request. */
-    int request_seq;
+    public int request_seq;
     /** Outcome of the request. */
-    boolean success;
+    public boolean success;
     /** The command requested. */
-    String command;
+    public String command;
     /** Contains error message if success == false. */
-    String message;
+    public String message;
 }

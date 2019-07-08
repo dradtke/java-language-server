@@ -5,5 +5,5 @@ package org.javacs.debug;
  * ID.
  */
 public class ScopesRequest extends Request {
-    ScopesArguments arguments;
+    public ScopesArguments arguments;
 }

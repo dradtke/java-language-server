@@ -2,5 +2,5 @@ package org.javacs.debug;
 
 /** Response to 'setExpression' request. */
 public class SetExpressionResponse extends Response {
-    SetExpressionResponseBody body;
+    public SetExpressionResponseBody body;
 }
