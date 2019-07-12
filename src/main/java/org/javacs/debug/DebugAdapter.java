@@ -41,7 +41,7 @@ public class DebugAdapter {
             var c = client.read();
             if (c == -1) {
                 LOG.warning("Stream from client has been closed, throwing kill exception...");
-                throw new EndOfStream();
+                throw new EndOfStream(); // TODO this is showing an error?
             }
             return (char) c;
         } catch (IOException e) {
@@ -139,6 +139,9 @@ public class DebugAdapter {
 
         @Override
         public void output(OutputEventBody evt) {}
+
+        @Override
+        public void breakpoint(BreakpointEventBody evt) {}
 
         @Override
         public RunInTerminalResponseBody runInTerminal(RunInTerminalRequest req) {
@@ -412,6 +415,7 @@ public class DebugAdapter {
     private void processEvent(JsonObject json) {
         var evt = gson.fromJson(json, Event.class);
         switch (evt.event) {
+                // TODO
         }
     }
 

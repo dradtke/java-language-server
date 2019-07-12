@@ -11,6 +11,4 @@ public class LaunchRequestArguments {
      * 'terminated' event. The client should leave the data intact.
      */
     public JsonObject __restart;
-
-    public String main;
 }

@@ -9,4 +9,6 @@ public class AttachRequestArguments {
      * 'terminated' event. The client should leave the data intact.
      */
     public JsonObject __restart;
+
+    public int port;
 }

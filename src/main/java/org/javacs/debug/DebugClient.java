@@ -9,5 +9,7 @@ public interface DebugClient {
 
     void output(OutputEventBody evt);
 
+    void breakpoint(BreakpointEventBody evt);
+
     RunInTerminalResponseBody runInTerminal(RunInTerminalRequest req);
 }
