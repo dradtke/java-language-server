@@ -81,15 +81,33 @@ class FileStore {
     }
 
     static Collection<Path> all() {
-        return javaSources.keySet();
+        var list = new ArrayList<Path>();
+        var notExists = new ArrayList<Path>();
+        for (var file : javaSources.keySet()) {
+            if (Files.exists(file)) {
+                list.add(file);
+            } else {
+                notExists.add(file);
+            }
+        }
+        for (var file : notExists) {
+            javaSources.remove(file);
+        }
+        return list;
     }
 
     static List<Path> list(String packageName) {
         var list = new ArrayList<Path>();
-        for (var kv : javaSources.entrySet()) {
-            var file = kv.getKey();
-            var info = kv.getValue();
-            if (info.packageName.equals(packageName)) list.add(file);
+        var notExists = new ArrayList<Path>();
+        for (var file : javaSources.keySet()) {
+            if (Files.exists(file) && javaSources.get(file).packageName.equals(packageName)) {
+                list.add(file);
+            } else {
+                notExists.add(file);
+            }
+        }
+        for (var file : notExists) {
+            javaSources.remove(file);
         }
         return list;
     }
@@ -112,11 +130,11 @@ class FileStore {
     }
 
     static String packageName(Path file) {
-        // If we've never checked before, look up modified time on disk
+        // If we've never checked before, look up package name on disk
         if (!javaSources.containsKey(file)) {
             readInfoFromDisk(file);
         }
-        // Look up modified time from cache
+        // Look up package name from cache
         return javaSources.get(file).packageName;
     }
 
