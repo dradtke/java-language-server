@@ -102,7 +102,7 @@
 					}
 				},
 				{
-					"match": "\\b(private|public|protected|abstract|default(?!=:)|static|final|const|extends|implements)\\b",
+					"match": "\\b(private|public|protected|abstract|default(?!=:)|static|final|volatile|const|extends|implements)\\b",
 					"name": "storage.modifier.java"
 				},
 				{
