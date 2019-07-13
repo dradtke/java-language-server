@@ -180,7 +180,11 @@ class CompileBatch implements AutoCloseable {
         d.range = new Range(position(contents, start), position(contents, end));
         d.message = String.format("`%s` is not used", unusedEl.getSimpleName());
         d.code = "unused";
-        d.severity = DiagnosticSeverity.Hint;
+        if (unusedEl instanceof ExecutableElement || unusedEl instanceof TypeElement) {
+            d.severity = DiagnosticSeverity.Hint;
+        } else {
+            d.severity = DiagnosticSeverity.Information;
+        }
         d.tags = List.of(DiagnosticTag.Unnecessary);
         return d;
     }
