@@ -14,8 +14,8 @@ import org.junit.Test;
 
 public class InferBazelConfigTest {
 
-    private Path bazelWorkspace = Paths.get("src/test/test-project/bazel-workspace"),
-            bazelTemp = Paths.get("src/test/test-project/bazel-temp");
+    private Path bazelWorkspace = Paths.get("src/test/examples/test-project/bazel-workspace"),
+            bazelTemp = Paths.get("src/test/examples/test-project/bazel-temp");
     private InferConfig bazel =
             new InferConfig(bazelWorkspace, Collections.emptySet(), Paths.get("nowhere"), Paths.get("nowhere"));
     private Path bazelBin = bazelWorkspace.resolve("bazel-bin"),

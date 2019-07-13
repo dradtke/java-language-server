@@ -30,7 +30,7 @@ public class JavaCompilerServiceTest {
             new JavaCompilerService(Collections.emptySet(), Collections.emptySet(), Collections.emptySet());
 
     static Path simpleProjectSrc() {
-        return Paths.get("src/test/test-project/simple").normalize();
+        return Paths.get("src/test/examples/test-project/simple").normalize();
     }
 
     @Before
