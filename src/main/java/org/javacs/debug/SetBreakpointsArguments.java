@@ -3,7 +3,7 @@ package org.javacs.debug;
 /** Arguments for 'setBreakpoints' request. */
 public class SetBreakpointsArguments {
     /** The source location of the breakpoints; either 'source.path' or 'source.reference' must be specified. */
-    public Source source;
+    public Source source = new Source();
     /** The code locations of the breakpoints. */
     public SourceBreakpoint[] breakpoints;
     /**

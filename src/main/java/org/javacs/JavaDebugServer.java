@@ -4,9 +4,14 @@ import com.sun.jdi.*;
 import com.sun.jdi.connect.AttachingConnector;
 import com.sun.jdi.connect.IllegalConnectorArgumentsException;
 import com.sun.jdi.event.*;
+import com.sun.jdi.request.EventRequest;
 import java.io.IOException;
+import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 import java.util.logging.Logger;
 import org.javacs.debug.*;
 
@@ -20,74 +25,6 @@ class JavaDebugServer implements DebugServer {
     private final List<Breakpoint> pendingBreakpoints = new ArrayList<>();
     private static int breakPointCounter = 0;
 
-    class ReceiveEvents implements Runnable {
-        @Override
-        public void run() {
-            var events = vm.eventQueue();
-            while (true) {
-                try {
-                    var nextSet = events.remove();
-                    for (var event : nextSet) {
-                        process(event);
-                    }
-                } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
-                }
-            }
-        }
-
-        private void process(com.sun.jdi.event.Event event) {
-            LOG.info("Process " + event.getClass().getSimpleName());
-
-            if (event instanceof ClassPrepareEvent) {
-                // Check for pending breakpoints in this class
-                var prepare = (ClassPrepareEvent) event;
-                var type = prepare.referenceType();
-                var path = path(type);
-                if (path == null) return;
-                var enabled = new ArrayList<Breakpoint>();
-                for (var b : pendingBreakpoints) {
-                    if (b.source.path.endsWith(path)) {
-                        if (enableBreakpoint(b, type)) {
-                            enabled.add(b);
-                        }
-                    }
-                }
-                pendingBreakpoints.removeAll(enabled);
-                // Notify VSCode we've enabled breakpoints
-                for (var b : enabled) {
-                    var evt = new BreakpointEventBody();
-                    evt.reason = "new";
-                    evt.breakpoint = b;
-                    client.breakpoint(evt);
-                }
-            }
-        }
-
-        private boolean enableBreakpoint(Breakpoint b, ReferenceType type) {
-            try {
-                var locations = type.locationsOfLine(b.line);
-                for (var line : locations) {
-                    vm.eventRequestManager().createBreakpointRequest(line).enable();
-                }
-                return !locations.isEmpty();
-            } catch (AbsentInformationException e) {
-                throw new RuntimeException(e);
-            }
-        }
-
-        private String path(ReferenceType type) {
-            try {
-                for (var path : type.sourcePaths(vm.getDefaultStratum())) {
-                    return path;
-                }
-                return null;
-            } catch (AbsentInformationException e) {
-                throw new RuntimeException(e);
-            }
-        }
-    }
-
     JavaDebugServer(DebugClient client) {
         this.client = client;
     }
@@ -100,10 +37,6 @@ class JavaDebugServer implements DebugServer {
 
     @Override
     public SetBreakpointsResponseBody setBreakpoints(SetBreakpointsArguments req) {
-        // Request to be notified when classes in this file are loaded
-        var requestClassEvent = vm.eventRequestManager().createClassPrepareRequest();
-        requestClassEvent.addSourceNameFilter(req.source.path);
-        requestClassEvent.enable();
         // Add these breakpoints to the pending set
         var resp = new SetBreakpointsResponseBody();
         resp.breakpoints = new Breakpoint[req.breakpoints.length];
@@ -160,8 +93,130 @@ class JavaDebugServer implements DebugServer {
         } catch (IOException | IllegalConnectorArgumentsException e) {
             throw new RuntimeException(e);
         }
+        listenForClassPrepareEvents();
+        enablePendingBreakpointsInLoadedClasses();
         new java.lang.Thread(new ReceiveEvents(), "receive-events").start();
         vm.resume();
+    }
+
+    class ReceiveEvents implements Runnable {
+        @Override
+        public void run() {
+            var events = vm.eventQueue();
+            while (true) {
+                try {
+                    var nextSet = events.remove();
+                    for (var event : nextSet) {
+                        process(event);
+                    }
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        }
+
+        private void process(com.sun.jdi.event.Event event) {
+            if (event instanceof ClassPrepareEvent) {
+                var prepare = (ClassPrepareEvent) event;
+                var type = prepare.referenceType();
+                LOG.info("ClassPrepareRequest for class " + type.name() + " in source " + path(type));
+                enableBreakpointsInClass(type);
+                event.virtualMachine().resume();
+            } else if (event instanceof com.sun.jdi.event.BreakpointEvent) {
+                var evt = new StoppedEventBody();
+                evt.reason = "breakpoint";
+                client.stopped(evt);
+            }
+        }
+    }
+
+    /* Set breakpoints for already-loaded classes */
+    private void enablePendingBreakpointsInLoadedClasses() {
+        Objects.requireNonNull(vm, "vm has not been initialized");
+        var paths = distinctSourceNames();
+        for (var type : vm.allClasses()) {
+            var path = path(type);
+            if (paths.contains(path)) {
+                enableBreakpointsInClass(type);
+            }
+        }
+    }
+
+    private void enableBreakpointsInClass(ReferenceType type) {
+        // Check that class has source information
+        var path = path(type);
+        if (path == null) return;
+        // Look for pending breakpoints that can be enabled
+        var enabled = new ArrayList<Breakpoint>();
+        for (var b : pendingBreakpoints) {
+            if (b.source.path.endsWith(path)) {
+                enableBreakpoint(b, type);
+                enabled.add(b);
+            }
+        }
+        pendingBreakpoints.removeAll(enabled);
+    }
+
+    private void enableBreakpoint(Breakpoint b, ReferenceType type) {
+        LOG.info("Enable breakpoint at " + b.source.path + ":" + b.line);
+        try {
+            var locations = type.locationsOfLine(b.line);
+            for (var line : locations) {
+                vm.eventRequestManager().createBreakpointRequest(line).enable();
+            }
+            if (locations.isEmpty()) {
+                var failed = new BreakpointEventBody();
+                var msg = "Class was loaded, but line " + b.line + " could not be found or had no code on it";
+                failed.reason = msg;
+                failed.breakpoint = b;
+                b.verified = false;
+                b.message = msg;
+                client.breakpoint(failed);
+            } else {
+                var ok = new BreakpointEventBody();
+                var msg = "Class was loaded, line " + b.line + " was found";
+                ok.reason = msg;
+                ok.breakpoint = b;
+                b.verified = true;
+                b.message = null;
+                client.breakpoint(ok);
+            }
+        } catch (AbsentInformationException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private String path(ReferenceType type) {
+        try {
+            for (var path : type.sourcePaths(vm.getDefaultStratum())) {
+                return path;
+            }
+            return null;
+        } catch (AbsentInformationException __) {
+            return null;
+        }
+    }
+
+    /* Request to be notified when files with pending breakpoints are loaded */
+    private void listenForClassPrepareEvents() {
+        Objects.requireNonNull(vm, "vm has not been initialized");
+        for (var name : distinctSourceNames()) {
+            LOG.info("Listen for ClassPrepareRequest in " + name);
+            var requestClassEvent = vm.eventRequestManager().createClassPrepareRequest();
+            requestClassEvent.addSourceNameFilter("*" + name);
+            requestClassEvent.setSuspendPolicy(EventRequest.SUSPEND_ALL);
+            requestClassEvent.enable();
+        }
+    }
+
+    private Set<String> distinctSourceNames() {
+        var distinctSourceNames = new HashSet<String>();
+        for (var b : pendingBreakpoints) {
+            var path = Paths.get(b.source.path);
+            var name = path.getFileName();
+            distinctSourceNames.add(name.toString());
+        }
+        return distinctSourceNames;
     }
 
     @Override
@@ -171,7 +226,9 @@ class JavaDebugServer implements DebugServer {
     public void terminate(TerminateArguments req) {}
 
     @Override
-    public void continue_(ContinueArguments req) {}
+    public void continue_(ContinueArguments req) {
+        vm.resume();
+    }
 
     @Override
     public void next(NextArguments req) {}
