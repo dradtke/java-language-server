@@ -80,36 +80,31 @@ class FileStore {
         }
     }
 
-    static Collection<Path> all() {
-        var list = new ArrayList<Path>();
+    private static void checkForDeletedFiles() {
         var notExists = new ArrayList<Path>();
         for (var file : javaSources.keySet()) {
             if (!Files.exists(file) && !activeDocuments.containsKey(file.toUri())) {
                 notExists.add(file);
-            } else {
-                list.add(file);
             }
         }
         for (var file : notExists) {
             LOG.info(file.getFileName() + " no longer exists");
             javaSources.remove(file);
         }
-        return list;
+    }
+
+    static Collection<Path> all() {
+        checkForDeletedFiles();
+        return javaSources.keySet();
     }
 
     static List<Path> list(String packageName) {
+        checkForDeletedFiles();
         var list = new ArrayList<Path>();
-        var notExists = new ArrayList<Path>();
         for (var file : javaSources.keySet()) {
-            if (!Files.exists(file) && !activeDocuments.containsKey(file.toUri())) {
-                notExists.add(file);
-            } else if (javaSources.get(file).packageName.equals(packageName)) {
+            if (javaSources.get(file).packageName.equals(packageName)) {
                 list.add(file);
             }
-        }
-        for (var file : notExists) {
-            LOG.info(file.getFileName() + " no longer exists");
-            javaSources.remove(file);
         }
         return list;
     }
