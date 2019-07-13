@@ -13,7 +13,7 @@ public class StoppedEventBody {
      */
     public String description;
     /** The thread which was stopped. */
-    public Integer threadId;
+    public Long threadId;
     /** A value of true hints to the frontend that this event should not change the focus. */
     public Boolean preserveFocusHint;
     /**

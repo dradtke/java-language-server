@@ -27,7 +27,7 @@ public class Variable {
      * If variablesReference is > 0, the variable is structured and its children can be retrieved by passing
      * variablesReference to the VariablesRequest.
      */
-    public int variablesReference;
+    public long variablesReference;
     /**
      * The number of named child variables. The client can use this optional information to present the children in a
      * paged UI and fetch them in chunks.

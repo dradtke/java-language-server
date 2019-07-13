@@ -29,6 +29,10 @@ public interface DebugServer {
 
     ThreadsResponseBody threads();
 
+    StackTraceResponseBody stackTrace(StackTraceArguments req);
+
+    ScopesResponseBody scopes(ScopesArguments req);
+
     VariablesResponseBody variables(VariablesArguments req);
 
     EvaluateResponseBody evaluate(EvaluateArguments req);

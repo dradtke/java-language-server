@@ -11,7 +11,7 @@ public class EvaluateResponseBody {
      * If variablesReference is > 0, the evaluate result is structured and its children can be retrieved by passing
      * variablesReference to the VariablesRequest.
      */
-    public int variablesReference;
+    public long variablesReference;
     /**
      * The number of named child variables. The client can use this optional information to present the variables in a
      * paged UI and fetch them in chunks.

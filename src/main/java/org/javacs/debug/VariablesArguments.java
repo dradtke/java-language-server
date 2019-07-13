@@ -3,7 +3,7 @@ package org.javacs.debug;
 /** Arguments for 'variables' request. */
 public class VariablesArguments {
     /** The Variable reference. */
-    public int variablesReference;
+    public long variablesReference;
     /**
      * Optional filter to limit the child variables to either named or indexed. If ommited, both types are fetched.
      * 'indexed' | 'named'.

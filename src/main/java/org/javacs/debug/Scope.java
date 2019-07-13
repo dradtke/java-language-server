@@ -17,7 +17,7 @@ public class Scope {
     /**
      * The variables of this scope can be retrieved by passing the value of variablesReference to the VariablesRequest.
      */
-    public int variablesReference;
+    public long variablesReference;
     /**
      * The number of named variables in this scope. The client can use this optional information to present the
      * variables in a paged UI and fetch them in chunks.

@@ -15,7 +15,7 @@ public class JavaDebugServerTest {
     DebugClient client = new MockClient();
     JavaDebugServer server = new JavaDebugServer(client);
     Process process;
-    ArrayBlockingQueue<StoppedEventBody> stopped = new ArrayBlockingQueue<>(10);
+    ArrayBlockingQueue<StoppedEventBody> stoppedEvents = new ArrayBlockingQueue<>(10);
 
     class MockClient implements DebugClient {
         @Override
@@ -25,7 +25,7 @@ public class JavaDebugServerTest {
 
         @Override
         public void stopped(StoppedEventBody evt) {
-            stopped.add(evt);
+            stoppedEvents.add(evt);
         }
 
         @Override
@@ -89,7 +89,41 @@ public class JavaDebugServerTest {
         attach.port = 8000;
         server.attach(attach);
         // Wait for stop
-        stopped.take();
+        var stopped = stoppedEvents.take();
+        // Find the main thread
+        var threads = server.threads().threads;
+        for (var t : threads) {
+            if (t.name.equals("main")) {
+                // Get the stack trace
+                var requestTrace = new StackTraceArguments();
+                requestTrace.threadId = t.id;
+                var stack = server.stackTrace(requestTrace);
+                System.out.println("Thread main:");
+                for (var frame : stack.stackFrames) {
+                    System.out.println(String.format("\t%s:%d (%s)", frame.name, frame.line, frame.source.path));
+                }
+                // Get variables
+                var requestScopes = new ScopesArguments();
+                requestScopes.frameId = stack.stackFrames[0].id;
+                var scopes = server.scopes(requestScopes).scopes;
+                // Get locals
+                var requestLocals = new VariablesArguments();
+                requestLocals.variablesReference = scopes[0].variablesReference;
+                var locals = server.variables(requestLocals).variables;
+                System.out.println("Locals:");
+                for (var v : locals) {
+                    System.out.println(String.format("\t%s %s = %s", v.type, v.name, v.value));
+                }
+                // Get arguments
+                var requestArgs = new VariablesArguments();
+                requestArgs.variablesReference = scopes[1].variablesReference;
+                var arguments = server.variables(requestArgs).variables;
+                System.out.println("Arguments:");
+                for (var v : arguments) {
+                    System.out.println(String.format("\t%s %s = %s", v.type, v.name, v.value));
+                }
+            }
+        }
         // Wait for process to exit
         server.continue_(new ContinueArguments());
         process.waitFor();

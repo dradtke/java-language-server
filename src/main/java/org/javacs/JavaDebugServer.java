@@ -123,8 +123,11 @@ class JavaDebugServer implements DebugServer {
                 enableBreakpointsInClass(type);
                 event.virtualMachine().resume();
             } else if (event instanceof com.sun.jdi.event.BreakpointEvent) {
+                var breakpoint = (com.sun.jdi.event.BreakpointEvent) event;
                 var evt = new StoppedEventBody();
                 evt.reason = "breakpoint";
+                evt.threadId = breakpoint.thread().uniqueID();
+                evt.allThreadsStopped = breakpoint.request().suspendPolicy() == EventRequest.SUSPEND_ALL;
                 client.stopped(evt);
             }
         }
@@ -162,7 +165,9 @@ class JavaDebugServer implements DebugServer {
         try {
             var locations = type.locationsOfLine(b.line);
             for (var line : locations) {
-                vm.eventRequestManager().createBreakpointRequest(line).enable();
+                var req = vm.eventRequestManager().createBreakpointRequest(line);
+                req.setSuspendPolicy(EventRequest.SUSPEND_ALL);
+                req.enable();
             }
             if (locations.isEmpty()) {
                 var failed = new BreakpointEventBody();
@@ -241,12 +246,170 @@ class JavaDebugServer implements DebugServer {
 
     @Override
     public ThreadsResponseBody threads() {
-        throw new UnsupportedOperationException();
+        var threads = new ThreadsResponseBody();
+        threads.threads = vm.allThreads().stream().map(this::asThread).toArray(org.javacs.debug.Thread[]::new);
+        return threads;
+    }
+
+    private org.javacs.debug.Thread asThread(ThreadReference t) {
+        var thread = new org.javacs.debug.Thread();
+        thread.id = t.uniqueID();
+        thread.name = t.name();
+        return thread;
+    }
+
+    @Override
+    public StackTraceResponseBody stackTrace(StackTraceArguments req) {
+        try {
+            for (var t : vm.allThreads()) {
+                if (t.uniqueID() == req.threadId) {
+                    var length = t.frameCount() - req.startFrame;
+                    if (req.levels != null) length = req.levels;
+                    var frames = t.frames(req.startFrame, length);
+                    var resp = new StackTraceResponseBody();
+                    resp.stackFrames =
+                            frames.stream().map(this::asStackFrame).toArray(org.javacs.debug.StackFrame[]::new);
+                    resp.totalFrames = t.frameCount();
+                    return resp;
+                }
+            }
+            throw new RuntimeException("Couldn't find thread " + req.threadId);
+        } catch (IncompatibleThreadStateException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private org.javacs.debug.StackFrame asStackFrame(com.sun.jdi.StackFrame f) {
+        var frame = new org.javacs.debug.StackFrame();
+        frame.id = uniqueFrameId(f);
+        frame.name = f.location().method().name();
+        frame.source = asSource(f.location());
+        frame.line = f.location().lineNumber();
+        return frame;
+    }
+
+    private Source asSource(Location l) {
+        try {
+            var src = new Source();
+            src.name = l.sourceName();
+            src.path = l.sourcePath();
+            return src;
+        } catch (AbsentInformationException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private long uniqueFrameId(com.sun.jdi.StackFrame f) {
+        try {
+            long count = 0;
+            for (var thread : f.virtualMachine().allThreads()) {
+                if (thread.equals(f.thread())) {
+                    for (var frame : thread.frames()) {
+                        if (frame.equals(f)) {
+                            return count;
+                        } else {
+                            count++;
+                        }
+                    }
+                } else {
+                    count += thread.frameCount();
+                }
+            }
+            return count;
+        } catch (IncompatibleThreadStateException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private com.sun.jdi.StackFrame findFrame(long id) {
+        try {
+            long count = 0;
+            for (var thread : vm.allThreads()) {
+                if (id < count + thread.frameCount()) {
+                    var offset = (int) (id - count);
+                    return thread.frame(offset);
+                } else {
+                    count += thread.frameCount();
+                }
+            }
+            throw new RuntimeException("Couldn't find frame " + id);
+        } catch (IncompatibleThreadStateException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public ScopesResponseBody scopes(ScopesArguments req) {
+        var resp = new ScopesResponseBody();
+        var locals = new Scope();
+        locals.name = "Locals";
+        locals.presentationHint = "locals";
+        locals.variablesReference = req.frameId * 2;
+        var arguments = new Scope();
+        arguments.name = "Arguments";
+        arguments.presentationHint = "arguments";
+        arguments.variablesReference = req.frameId * 2 + 1;
+        resp.scopes = new Scope[] {locals, arguments};
+        return resp;
     }
 
     @Override
     public VariablesResponseBody variables(VariablesArguments req) {
-        throw new UnsupportedOperationException();
+        var frameId = req.variablesReference / 2;
+        var scopeId = (int) (req.variablesReference % 2);
+        var frame = findFrame(frameId);
+        var resp = new VariablesResponseBody();
+        switch (scopeId) {
+            case 0: // locals
+                resp.variables = locals(frame);
+                break;
+            case 1: // arguments
+                resp.variables = arguments(frame);
+                break;
+        }
+        return resp;
+    }
+
+    private Variable[] locals(com.sun.jdi.StackFrame frame) {
+        return visible(frame)
+                .stream()
+                .filter(v -> !v.isArgument())
+                .map(v -> asVariable(v, frame))
+                .toArray(Variable[]::new);
+    }
+
+    private Variable[] arguments(com.sun.jdi.StackFrame frame) {
+        return visible(frame)
+                .stream()
+                .filter(v -> v.isArgument())
+                .map(v -> asVariable(v, frame))
+                .toArray(Variable[]::new);
+    }
+
+    private List<LocalVariable> visible(com.sun.jdi.StackFrame frame) {
+        try {
+            return frame.visibleVariables();
+        } catch (AbsentInformationException __) {
+            try {
+                LOG.warning(
+                        String.format(
+                                "No visible variable information in %s:%d",
+                                frame.location().sourceName(), frame.location().lineNumber()));
+            } catch (AbsentInformationException _again) { // TODO this should not warn
+                LOG.warning(String.format("No visible variable information in %s", frame.toString()));
+            }
+            return List.of();
+        }
+    }
+
+    private Variable asVariable(LocalVariable v, com.sun.jdi.StackFrame frame) {
+        Variable convert = new Variable();
+        convert.name = v.name();
+        convert.value = frame.getValue(v).toString();
+        convert.type = v.typeName();
+        // TODO set variablePresentationHint
+        // TODO set variablesReference and allow inspecting structure of collections and POJOs
+        return convert;
     }
 
     @Override
