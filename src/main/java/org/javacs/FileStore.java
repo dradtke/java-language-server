@@ -84,13 +84,14 @@ class FileStore {
         var list = new ArrayList<Path>();
         var notExists = new ArrayList<Path>();
         for (var file : javaSources.keySet()) {
-            if (Files.exists(file)) {
-                list.add(file);
-            } else {
+            if (!Files.exists(file) && !activeDocuments.containsKey(file.toUri())) {
                 notExists.add(file);
+            } else {
+                list.add(file);
             }
         }
         for (var file : notExists) {
+            LOG.info(file.getFileName() + " no longer exists");
             javaSources.remove(file);
         }
         return list;
@@ -100,13 +101,14 @@ class FileStore {
         var list = new ArrayList<Path>();
         var notExists = new ArrayList<Path>();
         for (var file : javaSources.keySet()) {
-            if (Files.exists(file) && javaSources.get(file).packageName.equals(packageName)) {
-                list.add(file);
-            } else {
+            if (!Files.exists(file) && !activeDocuments.containsKey(file.toUri())) {
                 notExists.add(file);
+            } else if (javaSources.get(file).packageName.equals(packageName)) {
+                list.add(file);
             }
         }
         for (var file : notExists) {
+            LOG.info(file.getFileName() + " no longer exists");
             javaSources.remove(file);
         }
         return list;
@@ -118,8 +120,8 @@ class FileStore {
 
     static Instant modified(Path file) {
         // If file is open, use last in-memory modification time
-        if (activeDocuments.containsKey(file)) {
-            return activeDocuments.get(file).modified;
+        if (activeDocuments.containsKey(file.toUri())) {
+            return activeDocuments.get(file.toUri()).modified;
         }
         // If we've never checked before, look up modified time on disk
         if (!javaSources.containsKey(file)) {
