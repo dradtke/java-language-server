@@ -171,11 +171,21 @@ class CompileBatch implements AutoCloseable {
 
     private org.javacs.lsp.Diagnostic warnUnused(Element unusedEl) {
         var path = trees.getPath(unusedEl);
+        var root = path.getCompilationUnit();
+        var leaf = path.getLeaf();
         var pos = trees.getSourcePositions();
-        var start = pos.getStartPosition(path.getCompilationUnit(), path.getLeaf());
-        var end = pos.getEndPosition(path.getCompilationUnit(), path.getLeaf());
-        var uri = path.getCompilationUnit().getSourceFile().toUri();
+        var start = pos.getStartPosition(root, leaf);
+        var end = pos.getEndPosition(root, leaf);
+        var uri = root.getSourceFile().toUri();
         var contents = FileStore.contents(uri);
+        if (leaf instanceof VariableTree) {
+            var v = (VariableTree) leaf;
+            var name = v.getName().toString();
+            var offset = pos.getEndPosition(root, v.getType());
+            if (offset == -1) offset = start;
+            offset = contents.indexOf(name, (int) offset);
+            end = offset + name.length();
+        }
         var d = new org.javacs.lsp.Diagnostic();
         d.range = new Range(position(contents, start), position(contents, end));
         d.message = String.format("`%s` is not used", unusedEl.getSimpleName());
