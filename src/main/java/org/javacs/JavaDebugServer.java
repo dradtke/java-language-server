@@ -12,12 +12,26 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.logging.Logger;
+import java.util.logging.*;
 import org.javacs.debug.*;
 
 class JavaDebugServer implements DebugServer {
     public static void main(String[] args) { // TODO don't show references for main method
+        createLogFile();
+        LOG.info(String.join(" ", args));
         new DebugAdapter(JavaDebugServer::new, System.in, System.out).run();
+        System.exit(0);
+    }
+
+    private static void createLogFile() {
+        try {
+            var logFile =
+                    new FileHandler("/Users/georgefraser/Documents/java-language-server/java-debug-server.log", false);
+            logFile.setFormatter(new LogFormat());
+            Logger.getLogger("main").addHandler(logFile);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private final DebugClient client;
@@ -32,6 +46,7 @@ class JavaDebugServer implements DebugServer {
     @Override
     public Capabilities initialize(InitializeRequestArguments req) {
         var resp = new Capabilities();
+        resp.supportsConfigurationDoneRequest = true;
         return resp;
     }
 
@@ -58,19 +73,26 @@ class JavaDebugServer implements DebugServer {
 
     @Override
     public SetFunctionBreakpointsResponseBody setFunctionBreakpoints(SetFunctionBreakpointsArguments req) {
-        throw new UnsupportedOperationException();
+        LOG.warning("Not yet implemented");
+        return new SetFunctionBreakpointsResponseBody();
     }
 
     @Override
     public void setExceptionBreakpoints(SetExceptionBreakpointsArguments req) {
-        throw new UnsupportedOperationException();
+        LOG.warning("Not yet implemented");
     }
 
     @Override
-    public void configurationDone() {}
+    public void configurationDone() {
+        listenForClassPrepareEvents();
+        enablePendingBreakpointsInLoadedClasses();
+        vm.resume();
+    }
 
     @Override
-    public void launch(LaunchRequestArguments req) {}
+    public void launch(LaunchRequestArguments req) {
+        throw new UnsupportedOperationException();
+    }
 
     private static AttachingConnector connector(String transport) {
         var found = new ArrayList<String>();
@@ -85,6 +107,7 @@ class JavaDebugServer implements DebugServer {
 
     @Override
     public void attach(AttachRequestArguments req) {
+        // Attach to the running VM
         var conn = connector("dt_socket");
         var args = conn.defaultArguments();
         args.get("port").setValue(Integer.toString(req.port));
@@ -93,10 +116,12 @@ class JavaDebugServer implements DebugServer {
         } catch (IOException | IllegalConnectorArgumentsException e) {
             throw new RuntimeException(e);
         }
-        listenForClassPrepareEvents();
-        enablePendingBreakpointsInLoadedClasses();
-        new java.lang.Thread(new ReceiveEvents(), "receive-events").start();
-        vm.resume();
+        // Create a thread that reads events from the VM
+        var reader = new java.lang.Thread(new ReceiveEvents(), "receive-events");
+        reader.setDaemon(true);
+        reader.start();
+        // Tell the client we are ready to receive breakpoints
+        client.initialized();
     }
 
     class ReceiveEvents implements Runnable {
@@ -109,19 +134,21 @@ class JavaDebugServer implements DebugServer {
                     for (var event : nextSet) {
                         process(event);
                     }
-                } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
+                } catch (Exception e) {
+                    LOG.log(Level.SEVERE, e.getMessage(), e);
+                    return;
                 }
             }
         }
 
         private void process(com.sun.jdi.event.Event event) {
+            LOG.info(event.toString());
             if (event instanceof ClassPrepareEvent) {
                 var prepare = (ClassPrepareEvent) event;
                 var type = prepare.referenceType();
                 LOG.info("ClassPrepareRequest for class " + type.name() + " in source " + path(type));
                 enableBreakpointsInClass(type);
-                event.virtualMachine().resume();
+                vm.resume();
             } else if (event instanceof com.sun.jdi.event.BreakpointEvent) {
                 var breakpoint = (com.sun.jdi.event.BreakpointEvent) event;
                 var evt = new StoppedEventBody();
@@ -129,6 +156,10 @@ class JavaDebugServer implements DebugServer {
                 evt.threadId = breakpoint.thread().uniqueID();
                 evt.allThreadsStopped = breakpoint.request().suspendPolicy() == EventRequest.SUSPEND_ALL;
                 client.stopped(evt);
+            } else if (event instanceof VMDeathEvent) {
+                client.exited(new ExitedEventBody());
+            } else if (event instanceof VMDisconnectEvent) {
+                client.terminated(new TerminatedEventBody());
             }
         }
     }
@@ -171,16 +202,14 @@ class JavaDebugServer implements DebugServer {
             }
             if (locations.isEmpty()) {
                 var failed = new BreakpointEventBody();
-                var msg = "Class was loaded, but line " + b.line + " could not be found or had no code on it";
-                failed.reason = msg;
+                failed.reason = "changed";
                 failed.breakpoint = b;
                 b.verified = false;
-                b.message = msg;
+                b.message = b.source.name + ":" + b.line + " could not be found or had no code on it";
                 client.breakpoint(failed);
             } else {
                 var ok = new BreakpointEventBody();
-                var msg = "Class was loaded, line " + b.line + " was found";
-                ok.reason = msg;
+                ok.reason = "changed";
                 ok.breakpoint = b;
                 b.verified = true;
                 b.message = null;
@@ -225,10 +254,19 @@ class JavaDebugServer implements DebugServer {
     }
 
     @Override
-    public void disconnect(DisconnectArguments req) {}
+    public void disconnect(DisconnectArguments req) {
+        try {
+            vm.dispose();
+        } catch (VMDisconnectedException __) {
+            LOG.warning("VM has already terminated");
+        }
+        vm = null;
+    }
 
     @Override
-    public void terminate(TerminateArguments req) {}
+    public void terminate(TerminateArguments req) {
+        throw new UnsupportedOperationException();
+    }
 
     @Override
     public void continue_(ContinueArguments req) {
@@ -236,13 +274,19 @@ class JavaDebugServer implements DebugServer {
     }
 
     @Override
-    public void next(NextArguments req) {}
+    public void next(NextArguments req) {
+        throw new UnsupportedOperationException();
+    }
 
     @Override
-    public void stepIn(StepInArguments req) {}
+    public void stepIn(StepInArguments req) {
+        throw new UnsupportedOperationException();
+    }
 
     @Override
-    public void stepOut(StepOutArguments req) {}
+    public void stepOut(StepOutArguments req) {
+        throw new UnsupportedOperationException();
+    }
 
     @Override
     public ThreadsResponseBody threads() {
@@ -264,7 +308,9 @@ class JavaDebugServer implements DebugServer {
             for (var t : vm.allThreads()) {
                 if (t.uniqueID() == req.threadId) {
                     var length = t.frameCount() - req.startFrame;
-                    if (req.levels != null) length = req.levels;
+                    if (req.levels != null && req.levels < length) {
+                        length = req.levels;
+                    }
                     var frames = t.frames(req.startFrame, length);
                     var resp = new StackTraceResponseBody();
                     resp.stackFrames =
@@ -292,16 +338,21 @@ class JavaDebugServer implements DebugServer {
         try {
             var src = new Source();
             src.name = l.sourceName();
-            src.path = l.sourcePath();
+            src.path =
+                    "/Users/georgefraser/Documents/copy-jls/src/test/examples/debug/"
+                            + l.sourcePath(); // TODO use FileStore to find file
             return src;
         } catch (AbsentInformationException e) {
             throw new RuntimeException(e);
         }
     }
 
+    /** Debug adapter protocol doesn't seem to like frame 0 */
+    private static final int FRAME_OFFSET = 100;
+
     private long uniqueFrameId(com.sun.jdi.StackFrame f) {
         try {
-            long count = 0;
+            long count = FRAME_OFFSET;
             for (var thread : f.virtualMachine().allThreads()) {
                 if (thread.equals(f.thread())) {
                     for (var frame : thread.frames()) {
@@ -323,7 +374,7 @@ class JavaDebugServer implements DebugServer {
 
     private com.sun.jdi.StackFrame findFrame(long id) {
         try {
-            long count = 0;
+            long count = FRAME_OFFSET;
             for (var thread : vm.allThreads()) {
                 if (id < count + thread.frameCount()) {
                     var offset = (int) (id - count);
@@ -407,8 +458,9 @@ class JavaDebugServer implements DebugServer {
         convert.name = v.name();
         convert.value = frame.getValue(v).toString();
         convert.type = v.typeName();
+        convert.variablesReference =
+                -1; // TODO set variablesReference and allow inspecting structure of collections and POJOs
         // TODO set variablePresentationHint
-        // TODO set variablesReference and allow inspecting structure of collections and POJOs
         return convert;
     }
 

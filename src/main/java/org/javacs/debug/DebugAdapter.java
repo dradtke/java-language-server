@@ -90,8 +90,10 @@ public class DebugAdapter {
 
     private static final Charset UTF_8 = Charset.forName("UTF-8");
 
-    private void writeClient(String messageText) {
-        var messageBytes = messageText.getBytes(UTF_8);
+    private void send(ProtocolMessage message) {
+        var jsonText = toJson(message);
+        LOG.info(jsonText);
+        var messageBytes = jsonText.getBytes(UTF_8);
         var headerText = String.format("Content-Length: %d\r\n\r\n", messageBytes.length);
         var headerBytes = headerText.getBytes(UTF_8);
         try {
@@ -100,21 +102,6 @@ public class DebugAdapter {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-    }
-
-    private void request(Request message) {
-        var jsonText = toJson(message);
-        writeClient(jsonText);
-    }
-
-    private void respond(Response message) {
-        var jsonText = toJson(message);
-        writeClient(jsonText);
-    }
-
-    private void event(Event event) {
-        var jsonText = toJson(event);
-        writeClient(jsonText);
     }
 
     private static final JsonObject END_OF_STREAM = new JsonObject();
@@ -126,28 +113,73 @@ public class DebugAdapter {
     private ArrayBlockingQueue<JsonObject> pending = new ArrayBlockingQueue<>(10);
     private Map<Integer, CompletableFuture<RunInTerminalResponseBody>> runInTerminalResponse =
             new ConcurrentHashMap<>();
+    private int respCounter = 0;
 
     class RealClient implements DebugClient {
         @Override
-        public void initialized() {}
+        public void initialized() {
+            var wrapper = new InitializedEvent();
+            wrapper.seq = respCounter++;
+            wrapper.type = "event";
+            wrapper.event = "initialized";
+            send(wrapper);
+        }
 
         @Override
-        public void stopped(StoppedEventBody evt) {}
+        public void stopped(StoppedEventBody evt) {
+            var wrapper = new StoppedEvent();
+            wrapper.seq = respCounter++;
+            wrapper.type = "event";
+            wrapper.event = "stopped";
+            wrapper.body = evt;
+            send(wrapper);
+        }
 
         @Override
-        public void exited(ExitedEventBody evt) {}
+        public void exited(ExitedEventBody evt) {
+            var wrapper = new ExitedEvent();
+            wrapper.seq = respCounter++;
+            wrapper.type = "event";
+            wrapper.event = "exited";
+            wrapper.body = evt;
+            send(wrapper);
+        }
 
         @Override
-        public void output(OutputEventBody evt) {}
+        public void terminated(TerminatedEventBody evt) {
+            var wrapper = new TerminatedEvent();
+            wrapper.seq = respCounter++;
+            wrapper.type = "event";
+            wrapper.event = "terminated";
+            wrapper.body = evt;
+            send(wrapper);
+        }
 
         @Override
-        public void breakpoint(BreakpointEventBody evt) {}
+        public void output(OutputEventBody evt) {
+            var wrapper = new OutputEvent();
+            wrapper.seq = respCounter++;
+            wrapper.type = "event";
+            wrapper.event = "output";
+            wrapper.body = evt;
+            send(wrapper);
+        }
+
+        @Override
+        public void breakpoint(BreakpointEventBody evt) {
+            var wrapper = new BreakpointEvent();
+            wrapper.seq = respCounter++;
+            wrapper.type = "event";
+            wrapper.event = "breakpoint";
+            wrapper.body = evt;
+            send(wrapper);
+        }
 
         @Override
         public RunInTerminalResponseBody runInTerminal(RunInTerminalRequest req) {
             var wait = new CompletableFuture<RunInTerminalResponseBody>();
             runInTerminalResponse.put(req.seq, wait);
-            request(req);
+            send(req);
             try {
                 return wait.get();
             } catch (InterruptedException | ExecutionException e) {
@@ -231,7 +263,6 @@ public class DebugAdapter {
 
         // Process messages on main thread
         LOG.info("Reading messages from queue...");
-        processMessages:
         while (true) {
             JsonObject json;
             try {
@@ -244,7 +275,7 @@ public class DebugAdapter {
             // If receive has been closed, exit
             if (json == END_OF_STREAM) {
                 LOG.warning("Stream from client has been closed, exiting...");
-                break processMessages;
+                return;
             }
             // If poll(_) failed, loop again
             if (json == null) {
@@ -252,19 +283,24 @@ public class DebugAdapter {
                 continue;
             }
             // Otherwise, process the new message
-            var msg = gson.fromJson(json, ProtocolMessage.class);
-            switch (msg.type) {
-                case "request":
-                    processRequest(json);
-                    break;
-                case "response":
-                    throw new RuntimeException("Response should have been handled by reader thread");
-                case "event":
-                    processEvent(json);
-                    break;
-                default:
-                    throw new RuntimeException("Unknown message type " + msg.type);
-            }
+            receive(json);
+        }
+    }
+
+    private void receive(JsonObject json) {
+        LOG.info(json.toString());
+        var msg = gson.fromJson(json, ProtocolMessage.class);
+        switch (msg.type) {
+            case "request":
+                processRequest(json);
+                break;
+            case "response":
+                throw new RuntimeException("Response should have been handled by reader thread");
+            case "event":
+                processEvent(json);
+                break;
+            default:
+                throw new RuntimeException("Unknown message type " + msg.type);
         }
     }
 
@@ -278,9 +314,10 @@ public class DebugAdapter {
                         resp.type = "response";
                         resp.command = req.command;
                         resp.request_seq = req.seq;
+                        resp.seq = respCounter++;
                         resp.success = true;
                         resp.body = server.initialize(gson.fromJson(json, InitializeRequest.class).arguments);
-                        respond(resp);
+                        send(resp);
                         break;
                     }
                 case "configurationDone":
@@ -315,15 +352,30 @@ public class DebugAdapter {
                     }
                 case "setBreakpoints":
                     {
-                        server.setBreakpoints(gson.fromJson(json, SetBreakpointsRequest.class).arguments);
-                        ack(req);
+                        var resp = new SetBreakpointsResponse();
+                        resp.type = "response";
+                        resp.type = "response";
+                        resp.command = req.command;
+                        resp.request_seq = req.seq;
+                        resp.seq = respCounter++;
+                        resp.success = true;
+                        resp.body = server.setBreakpoints(gson.fromJson(json, SetBreakpointsRequest.class).arguments);
+                        send(resp);
                         break;
                     }
                 case "setFunctionBreakpoints":
                     {
-                        server.setFunctionBreakpoints(
-                                gson.fromJson(json, SetFunctionBreakpointsRequest.class).arguments);
-                        ack(req);
+                        var resp = new SetFunctionBreakpointsResponse();
+                        resp.type = "response";
+                        resp.type = "response";
+                        resp.command = req.command;
+                        resp.request_seq = req.seq;
+                        resp.seq = respCounter++;
+                        resp.success = true;
+                        resp.body =
+                                server.setFunctionBreakpoints(
+                                        gson.fromJson(json, SetFunctionBreakpointsRequest.class).arguments);
+                        send(resp);
                         break;
                     }
                 case "setExceptionBreakpoints":
@@ -363,9 +415,34 @@ public class DebugAdapter {
                         resp.type = "response";
                         resp.command = req.command;
                         resp.request_seq = req.seq;
+                        resp.seq = respCounter++;
                         resp.success = true;
                         resp.body = server.threads();
-                        respond(resp);
+                        send(resp);
+                        break;
+                    }
+                case "stackTrace":
+                    {
+                        var resp = new StackTraceResponse();
+                        resp.type = "response";
+                        resp.command = req.command;
+                        resp.request_seq = req.seq;
+                        resp.seq = respCounter++;
+                        resp.success = true;
+                        resp.body = server.stackTrace(gson.fromJson(json, StackTraceRequest.class).arguments);
+                        send(resp);
+                        break;
+                    }
+                case "scopes":
+                    {
+                        var resp = new ScopesResponse();
+                        resp.type = "response";
+                        resp.command = req.command;
+                        resp.request_seq = req.seq;
+                        resp.seq = respCounter++;
+                        resp.success = true;
+                        resp.body = server.scopes(gson.fromJson(json, ScopesRequest.class).arguments);
+                        send(resp);
                         break;
                     }
                 case "variables":
@@ -374,9 +451,10 @@ public class DebugAdapter {
                         resp.type = "response";
                         resp.command = req.command;
                         resp.request_seq = req.seq;
+                        resp.seq = respCounter++;
                         resp.success = true;
                         resp.body = server.variables(gson.fromJson(json, VariablesRequest.class).arguments);
-                        respond(resp);
+                        send(resp);
                         break;
                     }
                 case "evaluate":
@@ -385,9 +463,10 @@ public class DebugAdapter {
                         resp.type = "response";
                         resp.command = req.command;
                         resp.request_seq = req.seq;
+                        resp.seq = respCounter++;
                         resp.success = true;
                         resp.body = server.evaluate(gson.fromJson(json, EvaluateRequest.class).arguments);
-                        respond(resp);
+                        send(resp);
                         break;
                     }
             }
@@ -397,9 +476,10 @@ public class DebugAdapter {
             resp.type = "response";
             resp.command = req.command;
             resp.request_seq = req.seq;
+            resp.seq = respCounter++;
             resp.success = false;
             resp.message = e.getMessage();
-            respond(resp);
+            send(resp);
         }
     }
 
@@ -408,8 +488,9 @@ public class DebugAdapter {
         resp.type = "response";
         resp.command = req.command;
         resp.request_seq = req.seq;
+        resp.seq = respCounter++;
         resp.success = true;
-        respond(resp);
+        send(resp);
     }
 
     private void processEvent(JsonObject json) {

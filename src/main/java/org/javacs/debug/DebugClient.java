@@ -5,6 +5,8 @@ public interface DebugClient {
 
     void stopped(StoppedEventBody evt);
 
+    void terminated(TerminatedEventBody evt);
+
     void exited(ExitedEventBody evt);
 
     void output(OutputEventBody evt);
