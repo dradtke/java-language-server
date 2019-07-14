@@ -103,10 +103,7 @@ class CompileBatch implements AutoCloseable {
     }
 
     private boolean okUnused(Name name) {
-        for (var i = 0; i < name.length(); i++) {
-            if (name.charAt(i) != '_') return false;
-        }
-        return true;
+        return name.charAt(0) == '_'; // TODO quick fix
     }
 
     Collection<PublishDiagnosticsParams> reportErrors() {
