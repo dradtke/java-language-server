@@ -35,4 +35,19 @@ JLINK_VM_OPTIONS="\
 --add-exports jdk.compiler/com.sun.tools.javac.util=javacs \
 --add-opens jdk.compiler/com.sun.tools.javac.api=javacs"
 DIR=`dirname $0`
-$DIR/java $JLINK_VM_OPTIONS -m javacs/org.javacs.Main $@' > dist/mac/bin/launcher
+$DIR/java $JLINK_VM_OPTIONS -m javacs/org.javacs.Main $@' > dist/mac/bin/langserver
+chmod +x dist/mac/bin/langserver
+
+echo '#!/bin/sh
+JLINK_VM_OPTIONS="\
+--add-exports jdk.compiler/com.sun.tools.javac.api=javacs \
+--add-exports jdk.compiler/com.sun.tools.javac.code=javacs \
+--add-exports jdk.compiler/com.sun.tools.javac.comp=javacs \
+--add-exports jdk.compiler/com.sun.tools.javac.main=javacs \
+--add-exports jdk.compiler/com.sun.tools.javac.tree=javacs \
+--add-exports jdk.compiler/com.sun.tools.javac.model=javacs \
+--add-exports jdk.compiler/com.sun.tools.javac.util=javacs \
+--add-opens jdk.compiler/com.sun.tools.javac.api=javacs"
+DIR=`dirname $0`
+$DIR/java $JLINK_VM_OPTIONS -m javacs/org.javacs.JavaDebugServer $@' > dist/mac/bin/debugadapter
+chmod +x dist/mac/bin/debugadapter

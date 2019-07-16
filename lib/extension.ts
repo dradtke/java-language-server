@@ -41,7 +41,7 @@ export function activate(context: ExtensionContext) {
         revealOutputChannelOn: 4 // never
     }
 
-    let launcherRelativePath = platformSpecificLauncher();
+    let launcherRelativePath = platformSpecificLangServer();
     let launcherPath = [context.extensionPath].concat(launcherRelativePath);
     let launcher = Path.resolve(...launcherPath);
     
@@ -266,13 +266,13 @@ function createProgressListeners(client: LanguageClient) {
     });
 }
 
-function platformSpecificLauncher(): string[] {
+function platformSpecificLangServer(): string[] {
 	switch (process.platform) {
 		case 'win32':
-            return ['dist', 'windows', 'bin', 'launcher'];
+            return ['dist', 'windows', 'bin', 'langserver'];
 
         case 'darwin':
-            return ['dist', 'mac', 'bin', 'launcher'];
+            return ['dist', 'mac', 'bin', 'langserver'];
 	}
 
 	throw `unsupported platform: ${process.platform}`;
