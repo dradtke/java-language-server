@@ -38,9 +38,7 @@ public class JavaDebugServerTest {
         }
 
         @Override
-        public void output(OutputEventBody evt) {
-            throw new UnsupportedOperationException();
-        }
+        public void output(OutputEventBody evt) {}
 
         @Override
         public void breakpoint(BreakpointEventBody evt) {
