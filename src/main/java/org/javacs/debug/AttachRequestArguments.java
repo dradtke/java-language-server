@@ -11,4 +11,6 @@ public class AttachRequestArguments {
     public JsonObject __restart;
 
     public int port;
+
+    public String[] sourceRoots;
 }

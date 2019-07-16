@@ -6,6 +6,8 @@ import com.sun.jdi.connect.IllegalConnectorArgumentsException;
 import com.sun.jdi.event.*;
 import com.sun.jdi.request.EventRequest;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -13,6 +15,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.logging.*;
+import java.util.stream.Collectors;
 import org.javacs.debug.*;
 
 class JavaDebugServer implements DebugServer {
@@ -35,6 +38,7 @@ class JavaDebugServer implements DebugServer {
     }
 
     private final DebugClient client;
+    private List<Path> sourceRoots = List.of();
     private VirtualMachine vm;
     private final List<Breakpoint> pendingBreakpoints = new ArrayList<>();
     private static int breakPointCounter = 0;
@@ -107,6 +111,20 @@ class JavaDebugServer implements DebugServer {
 
     @Override
     public void attach(AttachRequestArguments req) {
+        // Remember available source roots
+        sourceRoots = new ArrayList<Path>();
+        for (var string : req.sourceRoots) {
+            var path = Paths.get(string);
+            if (!Files.exists(path)) {
+                LOG.warning(string + " does not exist");
+                continue;
+            }
+            if (!Files.isDirectory(path)) {
+                LOG.warning(string + " is not a directory");
+                continue;
+            }
+            sourceRoots.add(path);
+        }
         // Attach to the running VM
         var conn = connector("dt_socket");
         var args = conn.defaultArguments();
@@ -336,15 +354,31 @@ class JavaDebugServer implements DebugServer {
 
     private Source asSource(Location l) {
         try {
+            var path = findSource(l);
             var src = new Source();
             src.name = l.sourceName();
-            src.path =
-                    "/Users/georgefraser/Documents/copy-jls/src/test/examples/debug/"
-                            + l.sourcePath(); // TODO use FileStore to find file
+            src.path = Objects.toString(path, null);
             return src;
         } catch (AbsentInformationException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private Path findSource(Location l) {
+        for (var root : sourceRoots) {
+            try {
+                var path = root.resolve(l.sourcePath());
+                if (Files.exists(path)) {
+                    return path;
+                }
+            } catch (AbsentInformationException __) {
+                LOG.warning(l + " has no location information");
+                return null;
+            }
+        }
+        var in = sourceRoots.stream().map(Path::toString).collect(Collectors.joining(", "));
+        LOG.warning("Could not find " + l + " in " + in);
+        return null;
     }
 
     /** Debug adapter protocol doesn't seem to like frame 0 */
