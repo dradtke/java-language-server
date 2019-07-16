@@ -78,7 +78,7 @@ JLINK_VM_OPTIONS="\
 --add-exports jdk.compiler/com.sun.tools.javac.util=javacs \
 --add-opens jdk.compiler/com.sun.tools.javac.api=javacs"
 DIR=`dirname $0`
-$DIR/java $JLINK_VM_OPTIONS -m javacs/org.javacs.JavaDebugServer $@' > dist/windows/bin/debugadapter
+$DIR/java $JLINK_VM_OPTIONS -m javacs/org.javacs.debug.JavaDebugServer $@' > dist/windows/bin/debugadapter
 chmod +x debugadapter
 
 echo '@echo off
@@ -92,5 +92,5 @@ set JLINK_VM_OPTIONS="\
 --add-exports jdk.compiler/com.sun.tools.javac.util=javacs \
 --add-opens jdk.compiler/com.sun.tools.javac.api=javacs"
 set DIR=%~dp0
-"%DIR%\java" %JLINK_VM_OPTIONS% -m javacs/org.javacs.JavaDebugServer %*' > dist/windows/bin/debugadapter.bat
+"%DIR%\java" %JLINK_VM_OPTIONS% -m javacs/org.javacs.debug.JavaDebugServer %*' > dist/windows/bin/debugadapter.bat
 chmod +x debugadapter.bat

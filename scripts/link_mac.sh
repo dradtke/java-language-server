@@ -49,5 +49,5 @@ JLINK_VM_OPTIONS="\
 --add-exports jdk.compiler/com.sun.tools.javac.util=javacs \
 --add-opens jdk.compiler/com.sun.tools.javac.api=javacs"
 DIR=`dirname $0`
-$DIR/java $JLINK_VM_OPTIONS -m javacs/org.javacs.JavaDebugServer $@' > dist/mac/bin/debugadapter
+$DIR/java $JLINK_VM_OPTIONS -m javacs/org.javacs.debug.JavaDebugServer $@' > dist/mac/bin/debugadapter
 chmod +x dist/mac/bin/debugadapter

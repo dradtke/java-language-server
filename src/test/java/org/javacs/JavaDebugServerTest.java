@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.logging.Logger;
 import org.javacs.debug.*;
+import org.javacs.debug.proto.*;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -27,6 +28,9 @@ public class JavaDebugServerTest {
         public void stopped(StoppedEventBody evt) {
             stoppedEvents.add(evt);
         }
+
+        @Override
+        public void terminated(TerminatedEventBody evt) {}
 
         @Override
         public void exited(ExitedEventBody evt) {
