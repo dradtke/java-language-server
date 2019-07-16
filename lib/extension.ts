@@ -23,7 +23,7 @@ export function activate(context: ExtensionContext) {
     // Options to control the language client
     let clientOptions: LanguageClientOptions = {
         // Register the server for java documents
-        documentSelector: ['java'],
+        documentSelector: [{scheme: 'file', language: 'java'}],
         synchronize: {
             // Synchronize the setting section 'java' to the server
             // NOTE: this currently doesn't do anything
@@ -136,7 +136,7 @@ export function activate(context: ExtensionContext) {
 	context.subscriptions.push(window.onDidChangeTextEditorVisibleRanges(change => color(change.textEditor)));
     context.subscriptions.push(workspace.onDidChangeTextDocument(colorEdited));
     if (debugTreeSitter) {
-        languages.registerHoverProvider({language: 'java'}, {
+        languages.registerHoverProvider({scheme: 'file', language: 'java'}, {
             provideHover(doc, pos) {
                 const offset = doc.offsetAt(pos);
                 let node = tree(doc.uri).rootNode;
