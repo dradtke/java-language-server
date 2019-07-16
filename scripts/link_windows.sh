@@ -50,7 +50,7 @@ JLINK_VM_OPTIONS="\
 --add-opens jdk.compiler/com.sun.tools.javac.api=javacs"
 DIR=`dirname $0`
 $DIR/java $JLINK_VM_OPTIONS -m javacs/org.javacs.Main $@' > dist/windows/bin/langserver
-chmod +x langserver
+chmod +x dist/windows/bin/langserver
 
 
 echo '@echo off
@@ -65,7 +65,7 @@ set JLINK_VM_OPTIONS="\
 --add-opens jdk.compiler/com.sun.tools.javac.api=javacs"
 set DIR=%~dp0
 "%DIR%\java" %JLINK_VM_OPTIONS% -m javacs/org.javacs.Main %*' > dist/windows/bin/langserver.bat
-chmod +x langserver.bat
+chmod +x dist/windows/bin/langserver.bat
 
 echo '#!/bin/sh
 JLINK_VM_OPTIONS="\
@@ -79,7 +79,7 @@ JLINK_VM_OPTIONS="\
 --add-opens jdk.compiler/com.sun.tools.javac.api=javacs"
 DIR=`dirname $0`
 $DIR/java $JLINK_VM_OPTIONS -m javacs/org.javacs.debug.JavaDebugServer $@' > dist/windows/bin/debugadapter
-chmod +x debugadapter
+chmod +x dist/windows/bin/debugadapter
 
 echo '@echo off
 set JLINK_VM_OPTIONS="\
@@ -93,4 +93,4 @@ set JLINK_VM_OPTIONS="\
 --add-opens jdk.compiler/com.sun.tools.javac.api=javacs"
 set DIR=%~dp0
 "%DIR%\java" %JLINK_VM_OPTIONS% -m javacs/org.javacs.debug.JavaDebugServer %*' > dist/windows/bin/debugadapter.bat
-chmod +x debugadapter.bat
+chmod +x dist/windows/bin/debugadapter.bat

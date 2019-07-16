@@ -23,7 +23,7 @@
     ],
     "activationEvents": [
         "onLanguage:java",
-            "onDebug"
+        "onDebug"
     ],
     "main": "./out/lib/extension",
     "contributes": {
