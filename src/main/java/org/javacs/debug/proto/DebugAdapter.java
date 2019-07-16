@@ -502,5 +502,5 @@ public class DebugAdapter {
 
     static class EndOfStream extends RuntimeException {}
 
-    private static final Logger LOG = Logger.getLogger("main");
+    private static final Logger LOG = Logger.getLogger("debug");
 }

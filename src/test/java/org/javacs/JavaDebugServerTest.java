@@ -20,9 +20,7 @@ public class JavaDebugServerTest {
 
     class MockClient implements DebugClient {
         @Override
-        public void initialized() {
-            throw new UnsupportedOperationException();
-        }
+        public void initialized() {}
 
         @Override
         public void stopped(StoppedEventBody evt) {
@@ -33,12 +31,12 @@ public class JavaDebugServerTest {
         public void terminated(TerminatedEventBody evt) {}
 
         @Override
-        public void exited(ExitedEventBody evt) {
-            throw new UnsupportedOperationException();
-        }
+        public void exited(ExitedEventBody evt) {}
 
         @Override
-        public void output(OutputEventBody evt) {}
+        public void output(OutputEventBody evt) {
+            LOG.info(evt.output);
+        }
 
         @Override
         public void breakpoint(BreakpointEventBody evt) {
@@ -73,12 +71,19 @@ public class JavaDebugServerTest {
     public void attachToProcess() throws InterruptedException {
         var attach = new AttachRequestArguments();
         attach.port = 8000;
+        attach.sourceRoots = new String[] {};
         server.attach(attach);
+        server.configurationDone();
         process.waitFor();
     }
 
     @Test
     public void setBreakpoint() throws InterruptedException {
+        // Attach to the process
+        var attach = new AttachRequestArguments();
+        attach.port = 8000;
+        attach.sourceRoots = new String[] {};
+        server.attach(attach);
         // Set a breakpoint at HelloWorld.java:4
         var set = new SetBreakpointsArguments();
         var point = new SourceBreakpoint();
@@ -86,10 +91,7 @@ public class JavaDebugServerTest {
         set.source.path = workingDirectory.resolve("Hello.java").toString();
         set.breakpoints = new SourceBreakpoint[] {point};
         server.setBreakpoints(set);
-        // Attach to the process
-        var attach = new AttachRequestArguments();
-        attach.port = 8000;
-        server.attach(attach);
+        server.configurationDone();
         // Wait for stop
         var stopped = stoppedEvents.take();
         // Find the main thread

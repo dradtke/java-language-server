@@ -48,7 +48,7 @@ public class JavaDebugServer implements DebugServer {
             @Override
             public void close() {}
         }
-        Logger.getLogger("main").addHandler(new LogToConsole());
+        Logger.getLogger("debug").addHandler(new LogToConsole());
     }
 
     @Override
@@ -157,6 +157,9 @@ public class JavaDebugServer implements DebugServer {
                     for (var event : nextSet) {
                         process(event);
                     }
+                } catch (VMDisconnectedException __) {
+                    LOG.info("VM disconnected");
+                    return;
                 } catch (Exception e) {
                     LOG.log(Level.SEVERE, e.getMessage(), e);
                     return;
@@ -508,5 +511,5 @@ public class JavaDebugServer implements DebugServer {
         throw new UnsupportedOperationException();
     }
 
-    private static final Logger LOG = Logger.getLogger("main");
+    private static final Logger LOG = Logger.getLogger("debug");
 }
