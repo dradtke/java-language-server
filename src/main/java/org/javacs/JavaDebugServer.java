@@ -20,21 +20,9 @@ import org.javacs.debug.*;
 
 class JavaDebugServer implements DebugServer {
     public static void main(String[] args) { // TODO don't show references for main method
-        createLogFile();
         LOG.info(String.join(" ", args));
         new DebugAdapter(JavaDebugServer::new, System.in, System.out).run();
         System.exit(0);
-    }
-
-    private static void createLogFile() {
-        try {
-            var logFile =
-                    new FileHandler("/Users/georgefraser/Documents/java-language-server/java-debug-server.log", false);
-            logFile.setFormatter(new LogFormat());
-            Logger.getLogger("main").addHandler(logFile);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
     }
 
     private final DebugClient client;
@@ -45,6 +33,22 @@ class JavaDebugServer implements DebugServer {
 
     JavaDebugServer(DebugClient client) {
         this.client = client;
+        class LogToConsole extends Handler {
+            @Override
+            public void publish(LogRecord r) {
+                var evt = new OutputEventBody();
+                evt.category = "console";
+                evt.output = r.getSourceClassName() + "\t" + r.getSourceMethodName() + "\t" + r.getMessage() + "\n";
+                client.output(evt);
+            }
+
+            @Override
+            public void flush() {}
+
+            @Override
+            public void close() {}
+        }
+        Logger.getLogger("main").addHandler(new LogToConsole());
     }
 
     @Override
@@ -118,12 +122,13 @@ class JavaDebugServer implements DebugServer {
             if (!Files.exists(path)) {
                 LOG.warning(string + " does not exist");
                 continue;
-            }
-            if (!Files.isDirectory(path)) {
+            } else if (!Files.isDirectory(path)) {
                 LOG.warning(string + " is not a directory");
                 continue;
+            } else {
+                LOG.info(path + " is a source root");
+                sourceRoots.add(path);
             }
-            sourceRoots.add(path);
         }
         // Attach to the running VM
         var conn = connector("dt_socket");

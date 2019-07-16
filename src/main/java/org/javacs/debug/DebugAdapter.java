@@ -92,7 +92,7 @@ public class DebugAdapter {
 
     private void send(ProtocolMessage message) {
         var jsonText = toJson(message);
-        LOG.info(jsonText);
+        // LOG.info(jsonText);
         var messageBytes = jsonText.getBytes(UTF_8);
         var headerText = String.format("Content-Length: %d\r\n\r\n", messageBytes.length);
         var headerBytes = headerText.getBytes(UTF_8);
@@ -288,7 +288,7 @@ public class DebugAdapter {
     }
 
     private void receive(JsonObject json) {
-        LOG.info(json.toString());
+        // LOG.info(json.toString());
         var msg = gson.fromJson(json, ProtocolMessage.class);
         switch (msg.type) {
             case "request":
