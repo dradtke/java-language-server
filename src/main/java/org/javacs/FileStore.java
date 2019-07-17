@@ -109,6 +109,33 @@ class FileStore {
         return list;
     }
 
+    static Set<Path> sourceRoots() {
+        checkForDeletedFiles();
+        var roots = new HashSet<Path>();
+        for (var file : javaSources.keySet()) {
+            var root = sourceRoot(file);
+            if (root != null) {
+                roots.add(root);
+            }
+        }
+        return roots;
+    }
+
+    private static Path sourceRoot(Path file) {
+        var info = javaSources.get(file);
+        var parts = info.packageName.split("\\.");
+        var dir = file.getParent();
+        for (var i = parts.length - 1; i >= 0; i--) {
+            var end = parts[i];
+            if (dir.endsWith(end)) {
+                dir = dir.getParent();
+            } else {
+                return null;
+            }
+        }
+        return dir;
+    }
+
     static boolean contains(Path file) {
         return isJavaFile(file) && javaSources.containsKey(file);
     }
@@ -136,13 +163,13 @@ class FileStore {
     }
 
     static String suggestedPackageName(Path file) {
-        var sourceRoot = sourceRoot(file);
+        var sourceRoot = suggestSourceRoot(file);
         var relativePath = sourceRoot.relativize(file).getParent();
         if (relativePath == null) return "";
         return relativePath.toString().replace(File.separatorChar, '.');
     }
 
-    private static Path sourceRoot(Path file) {
+    private static Path suggestSourceRoot(Path file) {
         for (var dir = file.getParent(); dir != null; dir = dir.getParent()) {
             for (var related : javaSourcesIn(dir)) {
                 if (related.equals(file)) continue;

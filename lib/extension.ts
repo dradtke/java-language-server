@@ -3,7 +3,7 @@
 // Import the module and reference it with the alias vscode in your code below
 import * as Path from "path";
 import * as FS from "fs";
-import {window, workspace, ExtensionContext, commands, tasks, Task, TaskExecution, ShellExecution, Uri, TaskDefinition, languages, IndentAction, Progress, ProgressLocation, ConfigurationChangeEvent, TextDocumentChangeEvent, Hover} from 'vscode';
+import {window, workspace, ExtensionContext, commands, tasks, Task, TaskExecution, ShellExecution, Uri, TaskDefinition, languages, IndentAction, Progress, ProgressLocation, ConfigurationChangeEvent, TextDocumentChangeEvent, Hover, debug, DebugConfiguration} from 'vscode';
 import {LanguageClient, LanguageClientOptions, ServerOptions, NotificationType} from "vscode-languageclient";
 import {tree, activate as activateTreeSitter} from 'vscode-tree-sitter';
 import {color} from './treeSitter';
@@ -104,6 +104,7 @@ export function activate(context: ExtensionContext) {
 
     // Register test commands
     commands.registerCommand('java.command.test.run', runTest);
+    commands.registerCommand('java.command.test.debug', debugTest);
     commands.registerCommand('java.command.findReferences', runFindReferences);
 
 	// When the language client activates, register a progress-listener
@@ -170,37 +171,78 @@ interface JavaTestTask extends TaskDefinition {
     methodName: string
 }
 
-function runTest(sourceUri: string, className: string, methodName: string): Thenable<TaskExecution> {
+function runTest(sourceUri: string, className: string, methodName: string|null): Thenable<TaskExecution> {
     let file = Uri.parse(sourceUri).fsPath;
     file = Path.relative(workspace.rootPath, file);
-	let kind: JavaTestTask = {
+	let test: JavaTestTask = {
 		type: 'java.task.test',
         className: className,
         methodName: methodName,
     }
-    var shell;
+    let shell = testShell(file, className, methodName);
+    if (shell == null) return null;
+	let workspaceFolder = workspace.getWorkspaceFolder(Uri.parse(sourceUri));
+	let testTask = new Task(test, workspaceFolder, 'Java Test', 'Java Language Server', shell);
+	return tasks.executeTask(testTask)
+}
+
+function testShell(file: string, className: string, methodName: string|null) {
     let config = workspace.getConfiguration('java')
     // Run method or class
     if (methodName != null) {
         let command = config.get('testMethod') as string[]
         if (command.length == 0) {
-            window.showErrorMessage('Set "java.testMethod" in .vscode/settings.json')
-            shell = new ShellExecution('echo', ['Set "java.testMethod" in .vscode/settings.json, for example ["mvn", "test", "-Dtest=${class}#${method}"]'])
+            window.showErrorMessage('Set "java.testMethod" in .vscode/settings.json');
+            return null;
         } else {
-            shell = templateCommand(command, file, className, methodName)
+            return templateCommand(command, file, className, methodName)
         }
     } else {
         let command = config.get('testClass') as string[]
         if (command.length == 0) {
-            window.showErrorMessage('Set "java.testClass" in .vscode/settings.json')
-            shell = new ShellExecution('echo', ['Set "java.testClass" in .vscode/settings.json, for example ["mvn", "test", "-Dtest=${class}"]'])
+            window.showErrorMessage('Set "java.testClass" in .vscode/settings.json');
+            return null;
         } else {
-            shell = templateCommand(command, file, className, methodName)
+            return templateCommand(command, file, className, methodName)
         }
     }
-	let workspaceFolder = workspace.getWorkspaceFolder(Uri.parse(sourceUri))
-	let task = new Task(kind, workspaceFolder, 'Java Test', 'Java Language Server', shell)
-	return tasks.executeTask(task)
+}
+
+async function debugTest(sourceUri: string, className: string, methodName: string, sourceRoots: string[]): Promise<boolean> {
+    let file = Uri.parse(sourceUri).fsPath;
+    file = Path.relative(workspace.rootPath, file);
+    // Run the test in its own shell
+	let test: JavaTestTask = {
+		type: 'java.task.test',
+        className: className,
+        methodName: methodName,
+    }
+    let shell = debugTestShell(file, className, methodName);
+    if (shell == null) return null;
+	let workspaceFolder = workspace.getWorkspaceFolder(Uri.parse(sourceUri));
+	let testTask = new Task(test, workspaceFolder, 'Java Test', 'Java Language Server', shell);
+    await tasks.executeTask(testTask);
+    // Attach to the running test
+	let attach: DebugConfiguration = {
+        name: 'Java Debug',
+        type: 'java',
+        request: 'attach',
+        port: 5005,
+        sourceRoots: sourceRoots,
+    }
+    console.log('Debug', JSON.stringify(attach));
+    return debug.startDebugging(workspaceFolder, attach);
+}
+
+function debugTestShell(file: string, className: string, methodName: string) {
+    let config = workspace.getConfiguration('java')
+    let command = config.get('debugTestMethod') as string[]
+    if (command.length == 0) {
+        window.showErrorMessage('Set "java.debugTestMethod" in .vscode/settings.json');
+        return null;
+    } else {
+        return templateCommand(command, file, className, methodName)
+    }
 }
 
 function templateCommand(command: string[], file: string, className: string, methodName: string) {

@@ -824,8 +824,19 @@ class JavaLanguageServer extends LanguageServer {
                 arguments.add(className);
                 if (memberName.isPresent()) arguments.add(memberName.get());
                 else arguments.add(JsonNull.INSTANCE);
+                // 'Run Test' code lens
                 var command = new Command("Run Test", "java.command.test.run", arguments);
                 var lens = new CodeLens(range.get(), command, null);
+                result.add(lens);
+                // 'Debug Test' code lens
+                // TODO this could be a CPU hot spot
+                var sourceRoots = new JsonArray();
+                for (var path : FileStore.sourceRoots()) {
+                    sourceRoots.add(path.toString());
+                }
+                arguments.add(sourceRoots);
+                command = new Command("Debug Test", "java.command.test.debug", arguments);
+                lens = new CodeLens(range.get(), command, null);
                 result.add(lens);
             }
             if (!cacheParse.isTestMethod(d) && !cacheParse.isTestClass(d) && !cacheParse.isOverride(d)) {

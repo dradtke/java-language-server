@@ -6,6 +6,7 @@ import com.sun.jdi.connect.IllegalConnectorArgumentsException;
 import com.sun.jdi.event.*;
 import com.sun.jdi.request.EventRequest;
 import java.io.IOException;
+import java.net.ConnectException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -131,13 +132,8 @@ public class JavaDebugServer implements DebugServer {
             }
         }
         // Attach to the running VM
-        var conn = connector("dt_socket");
-        var args = conn.defaultArguments();
-        args.get("port").setValue(Integer.toString(req.port));
-        try {
-            vm = conn.attach(args);
-        } catch (IOException | IllegalConnectorArgumentsException e) {
-            throw new RuntimeException(e);
+        if (!tryToConnect(req.port)) {
+            throw new RuntimeException("Failed to connect after 15 attempts");
         }
         // Create a thread that reads events from the VM
         var reader = new java.lang.Thread(new ReceiveEvents(), "receive-events");
@@ -145,6 +141,28 @@ public class JavaDebugServer implements DebugServer {
         reader.start();
         // Tell the client we are ready to receive breakpoints
         client.initialized();
+    }
+
+    private boolean tryToConnect(int port) {
+        var conn = connector("dt_socket");
+        var args = conn.defaultArguments();
+        args.get("port").setValue(Integer.toString(port));
+        for (var attempt = 0; attempt < 15; attempt++) {
+            try {
+                vm = conn.attach(args);
+                return true;
+            } catch (ConnectException e) {
+                LOG.warning(e.getMessage());
+                try {
+                    java.lang.Thread.sleep(1000);
+                } catch (InterruptedException __) {
+                    // Nothing to do
+                }
+            } catch (IOException | IllegalConnectorArgumentsException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        return false;
     }
 
     class ReceiveEvents implements Runnable {
