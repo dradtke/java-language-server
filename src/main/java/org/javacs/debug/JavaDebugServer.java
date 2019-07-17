@@ -5,6 +5,7 @@ import com.sun.jdi.connect.AttachingConnector;
 import com.sun.jdi.connect.IllegalConnectorArgumentsException;
 import com.sun.jdi.event.*;
 import com.sun.jdi.request.EventRequest;
+import com.sun.jdi.request.StepRequest;
 import java.io.IOException;
 import java.net.ConnectException;
 import java.nio.file.Files;
@@ -16,7 +17,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.logging.*;
-import java.util.stream.Collectors;
 import org.javacs.debug.proto.*;
 
 public class JavaDebugServer implements DebugServer {
@@ -200,6 +200,14 @@ public class JavaDebugServer implements DebugServer {
                 evt.threadId = breakpoint.thread().uniqueID();
                 evt.allThreadsStopped = breakpoint.request().suspendPolicy() == EventRequest.SUSPEND_ALL;
                 client.stopped(evt);
+            } else if (event instanceof StepEvent) {
+                var breakpoint = (StepEvent) event;
+                var evt = new StoppedEventBody();
+                evt.reason = "step";
+                evt.threadId = breakpoint.thread().uniqueID();
+                evt.allThreadsStopped = breakpoint.request().suspendPolicy() == EventRequest.SUSPEND_ALL;
+                client.stopped(evt);
+                event.request().disable();
             } else if (event instanceof VMDeathEvent) {
                 client.exited(new ExitedEventBody());
             } else if (event instanceof VMDisconnectEvent) {
@@ -319,7 +327,15 @@ public class JavaDebugServer implements DebugServer {
 
     @Override
     public void next(NextArguments req) {
-        throw new UnsupportedOperationException();
+        var thread = findThread(req.threadId);
+        if (thread == null) {
+            LOG.warning("No thread with id " + req.threadId);
+            return;
+        }
+        var step = vm.eventRequestManager().createStepRequest(thread, StepRequest.STEP_LINE, StepRequest.STEP_OVER);
+        step.addCountFilter(1);
+        step.enable();
+        vm.resume();
     }
 
     @Override
@@ -344,6 +360,15 @@ public class JavaDebugServer implements DebugServer {
         thread.id = t.uniqueID();
         thread.name = t.name();
         return thread;
+    }
+
+    private ThreadReference findThread(long threadId) {
+        for (var thread : vm.allThreads()) {
+            if (thread.uniqueID() == threadId) {
+                return thread;
+            }
+        }
+        return null;
     }
 
     @Override
@@ -390,20 +415,26 @@ public class JavaDebugServer implements DebugServer {
         }
     }
 
+    private static final Set<String> warnedCouldNotFind = new HashSet<>();
+
     private Path findSource(Location l) {
+        String relative;
+        try {
+            relative = l.sourcePath();
+        } catch (AbsentInformationException __) {
+            LOG.warning(l + " has no location information");
+            return null;
+        }
         for (var root : sourceRoots) {
-            try {
-                var path = root.resolve(l.sourcePath());
-                if (Files.exists(path)) {
-                    return path;
-                }
-            } catch (AbsentInformationException __) {
-                LOG.warning(l + " has no location information");
-                return null;
+            var absolute = root.resolve(relative);
+            if (Files.exists(absolute)) {
+                return absolute;
             }
         }
-        var in = sourceRoots.stream().map(Path::toString).collect(Collectors.joining(", "));
-        LOG.warning("Could not find " + l + " in " + in);
+        if (!warnedCouldNotFind.contains(relative)) {
+            LOG.warning("Could not find " + relative);
+            warnedCouldNotFind.add(relative);
+        }
         return null;
     }
 

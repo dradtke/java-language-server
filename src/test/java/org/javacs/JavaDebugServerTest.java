@@ -61,18 +61,31 @@ public class JavaDebugServerTest {
     @Before
     public void launchProcess() throws IOException, InterruptedException {
         var command =
-                List.of("java", "-Xdebug", "-Xrunjdwp:transport=dt_socket,address=8000,server=y,suspend=y", "Hello");
+                List.of("java", "-Xdebug", "-Xrunjdwp:transport=dt_socket,address=5005,server=y,suspend=y", "Hello");
         LOG.info("Launch " + String.join(", ", command));
         process = new ProcessBuilder().command(command).directory(workingDirectory.toFile()).inheritIO().start();
         java.lang.Thread.sleep(1000);
     }
 
-    @Test
-    public void attachToProcess() throws InterruptedException {
+    private void attach(int port) {
         var attach = new AttachRequestArguments();
-        attach.port = 8000;
+        attach.port = port;
         attach.sourceRoots = new String[] {};
         server.attach(attach);
+    }
+
+    private void setBreakpoint(int line) {
+        var set = new SetBreakpointsArguments();
+        var point = new SourceBreakpoint();
+        point.line = line;
+        set.source.path = workingDirectory.resolve("Hello.java").toString();
+        set.breakpoints = new SourceBreakpoint[] {point};
+        server.setBreakpoints(set);
+    }
+
+    @Test
+    public void attachToProcess() throws InterruptedException {
+        attach(5005);
         server.configurationDone();
         process.waitFor();
     }
@@ -80,20 +93,12 @@ public class JavaDebugServerTest {
     @Test
     public void setBreakpoint() throws InterruptedException {
         // Attach to the process
-        var attach = new AttachRequestArguments();
-        attach.port = 8000;
-        attach.sourceRoots = new String[] {};
-        server.attach(attach);
+        attach(5005);
         // Set a breakpoint at HelloWorld.java:4
-        var set = new SetBreakpointsArguments();
-        var point = new SourceBreakpoint();
-        point.line = 4;
-        set.source.path = workingDirectory.resolve("Hello.java").toString();
-        set.breakpoints = new SourceBreakpoint[] {point};
-        server.setBreakpoints(set);
+        setBreakpoint(4);
         server.configurationDone();
         // Wait for stop
-        var stopped = stoppedEvents.take();
+        stoppedEvents.take();
         // Find the main thread
         var threads = server.threads().threads;
         for (var t : threads) {
@@ -126,6 +131,31 @@ public class JavaDebugServerTest {
                 for (var v : arguments) {
                     System.out.println(String.format("\t%s %s = %s", v.type, v.name, v.value));
                 }
+            }
+        }
+        // Wait for process to exit
+        server.continue_(new ContinueArguments());
+        process.waitFor();
+    }
+
+    @Test
+    public void step() throws InterruptedException {
+        // Attach to the process
+        attach(5005);
+        // Set a breakpoint at HelloWorld.java:4
+        setBreakpoint(4);
+        server.configurationDone();
+        // Wait for stop
+        stoppedEvents.take();
+        // Find the main thread
+        var threads = server.threads().threads;
+        for (var t : threads) {
+            if (t.name.equals("main")) {
+                var next = new NextArguments();
+                next.threadId = t.id;
+                server.next(next);
+                // Wait for stop
+                stoppedEvents.take();
             }
         }
         // Wait for process to exit
