@@ -1,12 +1,10 @@
 package org.javacs.lsp;
 
-import java.io.IOException;
-
+import com.google.gson.TypeAdapter;
 import com.google.gson.annotations.JsonAdapter;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
-import com.google.gson.stream.JsonWriter;
-import com.google.gson.TypeAdapter;
+import java.io.IOException;
 
 @JsonAdapter(MarkedString.Adapter.class)
 public class MarkedString {
@@ -40,7 +38,7 @@ public class MarkedString {
 
         @Override
         public MarkedString read(JsonReader reader) throws IOException {
-          throw new UnsupportedOperationException("Deserializing MarkedString's is unsupported.");
+            throw new UnsupportedOperationException("Deserializing MarkedString's is unsupported.");
         }
     }
 }
