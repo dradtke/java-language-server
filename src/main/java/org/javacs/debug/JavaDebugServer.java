@@ -317,7 +317,7 @@ public class JavaDebugServer implements DebugServer {
 
     @Override
     public void terminate(TerminateArguments req) {
-        throw new UnsupportedOperationException();
+        vm.exit(1);
     }
 
     @Override
