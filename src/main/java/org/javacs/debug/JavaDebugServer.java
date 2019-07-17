@@ -340,12 +340,28 @@ public class JavaDebugServer implements DebugServer {
 
     @Override
     public void stepIn(StepInArguments req) {
-        throw new UnsupportedOperationException();
+        var thread = findThread(req.threadId);
+        if (thread == null) {
+            LOG.warning("No thread with id " + req.threadId);
+            return;
+        }
+        var step = vm.eventRequestManager().createStepRequest(thread, StepRequest.STEP_LINE, StepRequest.STEP_INTO);
+        step.addCountFilter(1);
+        step.enable();
+        vm.resume();
     }
 
     @Override
     public void stepOut(StepOutArguments req) {
-        throw new UnsupportedOperationException();
+        var thread = findThread(req.threadId);
+        if (thread == null) {
+            LOG.warning("No thread with id " + req.threadId);
+            return;
+        }
+        var step = vm.eventRequestManager().createStepRequest(thread, StepRequest.STEP_LINE, StepRequest.STEP_OUT);
+        step.addCountFilter(1);
+        step.enable();
+        vm.resume();
     }
 
     @Override
