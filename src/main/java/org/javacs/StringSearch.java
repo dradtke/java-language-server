@@ -212,7 +212,7 @@ class StringSearch {
 
     // TODO cache the progress made by searching shorter queries
     static boolean containsWordMatching(Path java, String query) {
-        if (FileStore.activeDocuments().contains(java)) {
+        if (FileStore.activeDocuments().contains(java.toUri())) {
             var text = FileStore.contents(java);
             return matchesTitleCase(text, query);
         }
@@ -232,7 +232,7 @@ class StringSearch {
 
     static boolean containsWord(Path java, String query) {
         var search = new StringSearch(query);
-        if (FileStore.activeDocuments().contains(java)) {
+        if (FileStore.activeDocuments().contains(java.toUri())) {
             var text = FileStore.contents(java).getBytes();
             return search.nextWord(text) != -1;
         }
@@ -251,7 +251,7 @@ class StringSearch {
 
     static boolean containsString(Path java, String query) {
         var search = new StringSearch(query);
-        if (FileStore.activeDocuments().contains(java)) {
+        if (FileStore.activeDocuments().contains(java.toUri())) {
             var text = FileStore.contents(java).getBytes();
             return search.next(text) != -1;
         }
