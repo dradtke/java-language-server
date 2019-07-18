@@ -311,10 +311,10 @@ function createProgressListeners(client: LanguageClient) {
 function platformSpecificLangServer(): string[] {
 	switch (process.platform) {
 		case 'win32':
-            return ['dist', 'windows', 'bin', 'langserver'];
+            return ['dist', 'windows', 'bin', 'launcher'];
 
         case 'darwin':
-            return ['dist', 'mac', 'bin', 'langserver'];
+            return ['dist', 'mac', 'bin', 'launcher'];
 	}
 
 	throw `unsupported platform: ${process.platform}`;

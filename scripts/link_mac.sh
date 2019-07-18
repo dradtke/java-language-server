@@ -35,8 +35,8 @@ JLINK_VM_OPTIONS="\
 --add-exports jdk.compiler/com.sun.tools.javac.util=javacs \
 --add-opens jdk.compiler/com.sun.tools.javac.api=javacs"
 DIR=`dirname $0`
-$DIR/java $JLINK_VM_OPTIONS -m javacs/org.javacs.Main $@' > dist/mac/bin/langserver
-chmod +x dist/mac/bin/langserver
+$DIR/java $JLINK_VM_OPTIONS -m javacs/org.javacs.Main $@' > dist/mac/bin/launcher
+chmod +x dist/mac/bin/launcher
 
 echo '#!/bin/sh
 JLINK_VM_OPTIONS="\

@@ -49,8 +49,8 @@ JLINK_VM_OPTIONS="\
 --add-exports jdk.compiler/com.sun.tools.javac.util=javacs \
 --add-opens jdk.compiler/com.sun.tools.javac.api=javacs"
 DIR=`dirname $0`
-$DIR/java $JLINK_VM_OPTIONS -m javacs/org.javacs.Main $@' > dist/windows/bin/langserver
-chmod +x dist/windows/bin/langserver
+$DIR/java $JLINK_VM_OPTIONS -m javacs/org.javacs.Main $@' > dist/windows/bin/launcher
+chmod +x dist/windows/bin/launcher
 
 
 echo '@echo off
@@ -64,8 +64,8 @@ set JLINK_VM_OPTIONS="\
 --add-exports jdk.compiler/com.sun.tools.javac.util=javacs \
 --add-opens jdk.compiler/com.sun.tools.javac.api=javacs"
 set DIR=%~dp0
-"%DIR%\java" %JLINK_VM_OPTIONS% -m javacs/org.javacs.Main %*' > dist/windows/bin/langserver.bat
-chmod +x dist/windows/bin/langserver.bat
+"%DIR%\java" %JLINK_VM_OPTIONS% -m javacs/org.javacs.Main %*' > dist/windows/bin/launcher.bat
+chmod +x dist/windows/bin/launcher.bat
 
 echo '#!/bin/sh
 JLINK_VM_OPTIONS="\
