@@ -18,6 +18,7 @@
         "editor.formatOnSave": true
     },
     "java.testMethod": ["scripts/run_test.sh", "${class}", "${method}"],
+    "java.debugTestMethod": ["scripts/debug_test.sh", "${class}", "${method}"],
     "java.testClass": ["scripts/run_test.sh", "${class}"],
     "java.addExports": [
         "jdk.compiler/com.sun.tools.javac.api",
