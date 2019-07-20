@@ -17,9 +17,9 @@
     "[java]": {
         "editor.formatOnSave": true
     },
-    "java.testMethod": ["scripts/run_test.sh", "${class}", "${method}"],
-    "java.debugTestMethod": ["scripts/debug_test.sh", "${class}", "${method}"],
-    "java.testClass": ["scripts/run_test.sh", "${class}"],
+    "java.testMethod": ["mvn", "test", "-Dtest=${class}#${method}"],
+    "java.debugTestMethod": ["mvn", "test", "-Dtest=${class}#${method}", "-Dmaven.surefire.debug"],
+    "java.testClass": ["mvn", "test", "-Dtest=${class}"],
     "java.addExports": [
         "jdk.compiler/com.sun.tools.javac.api",
         "jdk.compiler/com.sun.tools.javac.code",
