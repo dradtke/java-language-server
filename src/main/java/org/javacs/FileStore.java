@@ -18,6 +18,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
@@ -353,7 +354,7 @@ class FileStore {
         // because it doesn't realize there are already up-to-date .class files.
         // The better solution would be for java-language server to detect the presence of module-info.java,
         // and go into its own "module mode" where it infers a module source path and a module class path.
-        return name.endsWith(".java") && !Files.isDirectory(file) &&  !name.equals("module-info.java");
+        return name.endsWith(".java") && !Files.isDirectory(file) && !name.equals("module-info.java");
     }
 
     static boolean isJavaFile(URI uri) {
@@ -387,6 +388,7 @@ class VersionedContent {
     final Instant modified = Instant.now();
 
     VersionedContent(String content, int version) {
+        Objects.requireNonNull(content, "content is null");
         this.content = content;
         this.version = version;
     }

@@ -11,6 +11,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.logging.Logger;
@@ -274,6 +275,7 @@ class StringSearch {
      * FooBar, but it doesn't match Foobar (exposed for testing)
      */
     static boolean matchesTitleCase(CharSequence candidate, String find) {
+        Objects.requireNonNull(candidate, "candidate is null");
         int i = 0;
 
         tokenLoop:

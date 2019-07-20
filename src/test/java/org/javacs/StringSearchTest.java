@@ -100,6 +100,7 @@ public class StringSearchTest {
         // Open file
         var smallFile = Paths.get(FindResource.uri("/org/javacs/example/Goto.java"));
         var open = new DidOpenTextDocumentParams();
+        open.textDocument.text = FileStore.contents(smallFile);
         open.textDocument.uri = smallFile.toUri();
         FileStore.open(open);
         // Edit file
