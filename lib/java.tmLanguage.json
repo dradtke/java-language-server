@@ -89,7 +89,7 @@
 					"match": "\\.(class)\\b",
 					"captures": {
 						"1": {
-							"name": "keyword.control"
+							"name": "keyword.class"
 						}
 					}
 				},
