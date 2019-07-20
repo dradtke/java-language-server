@@ -17,13 +17,27 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.logging.*;
+import org.javacs.LogFormat;
 import org.javacs.debug.proto.*;
 
 public class JavaDebugServer implements DebugServer {
     public static void main(String[] args) { // TODO don't show references for main method
+        // createLogFile();
         LOG.info(String.join(" ", args));
         new DebugAdapter(JavaDebugServer::new, System.in, System.out).run();
         System.exit(0);
+    }
+
+    private static void createLogFile() {
+        try {
+            // TODO make location configurable
+            var logFile =
+                    new FileHandler("/Users/georgefraser/Documents/java-language-server/java-debug-server.log", false);
+            logFile.setFormatter(new LogFormat());
+            Logger.getLogger("").addHandler(logFile);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private final DebugClient client;
@@ -186,7 +200,7 @@ public class JavaDebugServer implements DebugServer {
         }
 
         private void process(com.sun.jdi.event.Event event) {
-            LOG.info(event.toString());
+            LOG.info("Received " + event.toString() + " from VM");
             if (event instanceof ClassPrepareEvent) {
                 var prepare = (ClassPrepareEvent) event;
                 var type = prepare.referenceType();
@@ -207,6 +221,7 @@ public class JavaDebugServer implements DebugServer {
                 evt.threadId = breakpoint.thread().uniqueID();
                 evt.allThreadsStopped = breakpoint.request().suspendPolicy() == EventRequest.SUSPEND_ALL;
                 client.stopped(evt);
+                // Disable event so we can create new step events
                 event.request().disable();
             } else if (event instanceof VMDeathEvent) {
                 client.exited(new ExitedEventBody());
@@ -332,6 +347,7 @@ public class JavaDebugServer implements DebugServer {
             LOG.warning("No thread with id " + req.threadId);
             return;
         }
+        LOG.info("Send StepRequest(STEP_LINE, STEP_OVER) to VM and resume");
         var step = vm.eventRequestManager().createStepRequest(thread, StepRequest.STEP_LINE, StepRequest.STEP_OVER);
         step.addCountFilter(1);
         step.enable();
@@ -345,6 +361,7 @@ public class JavaDebugServer implements DebugServer {
             LOG.warning("No thread with id " + req.threadId);
             return;
         }
+        LOG.info("Send StepRequest(STEP_LINE, STEP_INTO) to VM and resume");
         var step = vm.eventRequestManager().createStepRequest(thread, StepRequest.STEP_LINE, StepRequest.STEP_INTO);
         step.addCountFilter(1);
         step.enable();
@@ -358,6 +375,7 @@ public class JavaDebugServer implements DebugServer {
             LOG.warning("No thread with id " + req.threadId);
             return;
         }
+        LOG.info("Send StepRequest(STEP_LINE, STEP_OUT) to VM and resume");
         var step = vm.eventRequestManager().createStepRequest(thread, StepRequest.STEP_LINE, StepRequest.STEP_OUT);
         step.addCountFilter(1);
         step.enable();
