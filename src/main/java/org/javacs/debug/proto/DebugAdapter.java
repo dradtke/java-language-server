@@ -189,7 +189,7 @@ public class DebugAdapter {
         }
     }
 
-    class MessageReader implements Runnable {
+    class ReceiveDebugClientEvents implements Runnable {
         @Override
         public void run() {
             LOG.info("Placing incoming messages on queue...");
@@ -257,7 +257,7 @@ public class DebugAdapter {
 
     public void run() {
         // Read messages and process cancellations on a separate thread
-        var reader = new java.lang.Thread(new MessageReader(), "reader");
+        var reader = new java.lang.Thread(new ReceiveDebugClientEvents(), "receive-client");
         reader.setDaemon(true);
         reader.start();
 

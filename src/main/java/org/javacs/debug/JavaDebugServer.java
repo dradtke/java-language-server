@@ -46,6 +46,58 @@ public class JavaDebugServer implements DebugServer {
     private final List<Breakpoint> pendingBreakpoints = new ArrayList<>();
     private static int breakPointCounter = 0;
 
+    class ReceiveVmEvents implements Runnable {
+        @Override
+        public void run() {
+            var events = vm.eventQueue();
+            while (true) {
+                try {
+                    var nextSet = events.remove();
+                    for (var event : nextSet) {
+                        process(event);
+                    }
+                } catch (VMDisconnectedException __) {
+                    LOG.info("VM disconnected");
+                    return;
+                } catch (Exception e) {
+                    LOG.log(Level.SEVERE, e.getMessage(), e);
+                    return;
+                }
+            }
+        }
+
+        private void process(com.sun.jdi.event.Event event) {
+            LOG.info("Received " + event.toString() + " from VM");
+            if (event instanceof ClassPrepareEvent) {
+                var prepare = (ClassPrepareEvent) event;
+                var type = prepare.referenceType();
+                LOG.info("ClassPrepareRequest for class " + type.name() + " in source " + path(type));
+                enableBreakpointsInClass(type);
+                vm.resume();
+            } else if (event instanceof com.sun.jdi.event.BreakpointEvent) {
+                var breakpoint = (com.sun.jdi.event.BreakpointEvent) event;
+                var evt = new StoppedEventBody();
+                evt.reason = "breakpoint";
+                evt.threadId = breakpoint.thread().uniqueID();
+                evt.allThreadsStopped = breakpoint.request().suspendPolicy() == EventRequest.SUSPEND_ALL;
+                client.stopped(evt);
+            } else if (event instanceof StepEvent) {
+                var breakpoint = (StepEvent) event;
+                var evt = new StoppedEventBody();
+                evt.reason = "step";
+                evt.threadId = breakpoint.thread().uniqueID();
+                evt.allThreadsStopped = breakpoint.request().suspendPolicy() == EventRequest.SUSPEND_ALL;
+                client.stopped(evt);
+                // Disable event so we can create new step events
+                event.request().disable();
+            } else if (event instanceof VMDeathEvent) {
+                client.exited(new ExitedEventBody());
+            } else if (event instanceof VMDisconnectEvent) {
+                client.terminated(new TerminatedEventBody());
+            }
+        }
+    }
+
     public JavaDebugServer(DebugClient client) {
         this.client = client;
         class LogToConsole extends Handler {
@@ -150,7 +202,7 @@ public class JavaDebugServer implements DebugServer {
             throw new RuntimeException("Failed to connect after 15 attempts");
         }
         // Create a thread that reads events from the VM
-        var reader = new java.lang.Thread(new ReceiveEvents(), "receive-events");
+        var reader = new java.lang.Thread(new ReceiveVmEvents(), "receive-vm");
         reader.setDaemon(true);
         reader.start();
         // Tell the client we are ready to receive breakpoints
@@ -160,15 +212,18 @@ public class JavaDebugServer implements DebugServer {
     private boolean tryToConnect(int port) {
         var conn = connector("dt_socket");
         var args = conn.defaultArguments();
+        var intervalMs = 500;
+        var tryForS = 15;
+        var attempts = tryForS * 1000 / intervalMs;
         args.get("port").setValue(Integer.toString(port));
-        for (var attempt = 0; attempt < 15; attempt++) {
+        for (var attempt = 0; attempt < attempts; attempt++) {
             try {
                 vm = conn.attach(args);
                 return true;
             } catch (ConnectException e) {
                 LOG.warning(e.getMessage());
                 try {
-                    java.lang.Thread.sleep(1000);
+                    java.lang.Thread.sleep(intervalMs);
                 } catch (InterruptedException __) {
                     // Nothing to do
                 }
@@ -177,58 +232,6 @@ public class JavaDebugServer implements DebugServer {
             }
         }
         return false;
-    }
-
-    class ReceiveEvents implements Runnable {
-        @Override
-        public void run() {
-            var events = vm.eventQueue();
-            while (true) {
-                try {
-                    var nextSet = events.remove();
-                    for (var event : nextSet) {
-                        process(event);
-                    }
-                } catch (VMDisconnectedException __) {
-                    LOG.info("VM disconnected");
-                    return;
-                } catch (Exception e) {
-                    LOG.log(Level.SEVERE, e.getMessage(), e);
-                    return;
-                }
-            }
-        }
-
-        private void process(com.sun.jdi.event.Event event) {
-            LOG.info("Received " + event.toString() + " from VM");
-            if (event instanceof ClassPrepareEvent) {
-                var prepare = (ClassPrepareEvent) event;
-                var type = prepare.referenceType();
-                LOG.info("ClassPrepareRequest for class " + type.name() + " in source " + path(type));
-                enableBreakpointsInClass(type);
-                vm.resume();
-            } else if (event instanceof com.sun.jdi.event.BreakpointEvent) {
-                var breakpoint = (com.sun.jdi.event.BreakpointEvent) event;
-                var evt = new StoppedEventBody();
-                evt.reason = "breakpoint";
-                evt.threadId = breakpoint.thread().uniqueID();
-                evt.allThreadsStopped = breakpoint.request().suspendPolicy() == EventRequest.SUSPEND_ALL;
-                client.stopped(evt);
-            } else if (event instanceof StepEvent) {
-                var breakpoint = (StepEvent) event;
-                var evt = new StoppedEventBody();
-                evt.reason = "step";
-                evt.threadId = breakpoint.thread().uniqueID();
-                evt.allThreadsStopped = breakpoint.request().suspendPolicy() == EventRequest.SUSPEND_ALL;
-                client.stopped(evt);
-                // Disable event so we can create new step events
-                event.request().disable();
-            } else if (event instanceof VMDeathEvent) {
-                client.exited(new ExitedEventBody());
-            } else if (event instanceof VMDisconnectEvent) {
-                client.terminated(new TerminatedEventBody());
-            }
-        }
     }
 
     /* Set breakpoints for already-loaded classes */
