@@ -66,12 +66,31 @@ class Parser {
             if (type instanceof IdentifierTree) {
                 var id = (IdentifierTree) type;
                 var name = id.getName();
-                if (name.contentEquals("Test") || name.contentEquals("org.junit.Test")) {
+                if (name.contentEquals("Test")
+                        || name.contentEquals("org.junit.Test")
+                        || name.contentEquals("Before")
+                        || name.contentEquals("org.junit.Before")) {
                     return true;
                 }
             }
         }
         return false;
+    }
+
+    boolean isMainMethod(TreePath path) {
+        var leaf = path.getLeaf();
+        if (!(leaf instanceof MethodTree)) return false;
+        var method = (MethodTree) leaf;
+        var signature =
+                method.getModifiers()
+                        + ""
+                        + method.getReturnType()
+                        + " "
+                        + method.getName()
+                        + "("
+                        + method.getParameters()
+                        + ")";
+        return signature.matches("public static void main\\(String[] .+\\)");
     }
 
     boolean isTestClass(TreePath path) {
