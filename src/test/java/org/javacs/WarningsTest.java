@@ -5,15 +5,12 @@ import static org.junit.Assert.*;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.logging.Logger;
 import org.javacs.lsp.Diagnostic;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 
 public class WarningsTest {
-    protected static final Logger LOG = Logger.getLogger("main");
-
     private static List<String> errors = new ArrayList<>();
 
     protected static final JavaLanguageServer server =
