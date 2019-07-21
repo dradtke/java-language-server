@@ -262,6 +262,12 @@ class CompileBatch implements AutoCloseable {
                 check(getCurrentPath());
                 return super.visitVariable(t, null);
             }
+
+            @Override
+            public Void visitTypeParameter(TypeParameterTree t, Void __) {
+                check(getCurrentPath());
+                return super.visitTypeParameter(t, null);
+            }
         }
         var finder = new FindDefinitions();
         for (var r : roots) {

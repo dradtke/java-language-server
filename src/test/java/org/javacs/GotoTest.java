@@ -7,7 +7,6 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import org.javacs.lsp.*;
-import org.junit.Ignore;
 import org.junit.Test;
 
 // TODO change :n to (n)
@@ -114,7 +113,6 @@ public class GotoTest {
     }
 
     @Test
-    @Ignore // TODO
     public void typeParam() {
         var suggestions = doGoto(file, 46, 12);
 
