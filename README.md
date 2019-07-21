@@ -71,6 +71,10 @@ Note: This tool is not compatible with [vim-lsp](https://github.com/prabirshrest
 
 ![Find references 2](images/FindReferences2.png)
 
+### Debug
+
+![Debug test](images/DebugTest.png)
+
 ## Usage
 
 The language server will provide autocomplete and other features using:
