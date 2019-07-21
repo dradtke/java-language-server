@@ -127,7 +127,7 @@ public class JavaCompilerServiceTest {
     @Test
     public void completeIdentifiers() {
         var uri = resourceUri("CompleteIdentifiers.java");
-        var ctx = Parser.parseFile(uri).completionContext(13, 21).get();
+        var ctx = Parser.parseFile(uri).completionContext(13, 21);
         var focus = compiler.compileFocus(uri, ctx.line, ctx.character);
         var found = focus.completeIdentifiers(uri, ctx.line, ctx.character, ctx.inClass, ctx.inMethod, ctx.partialName);
         var names = insertText(found);
@@ -156,7 +156,7 @@ public class JavaCompilerServiceTest {
     @Test
     public void completeMembers() {
         var uri = resourceUri("CompleteMembers.java");
-        var ctx = Parser.parseFile(uri).completionContext(3, 15).get();
+        var ctx = Parser.parseFile(uri).completionContext(3, 15);
         var focus = compiler.compileFocus(uri, ctx.line, ctx.character);
         var found = focus.completeMembers(uri, ctx.line, ctx.character);
         var names = insertText(found);
@@ -168,7 +168,7 @@ public class JavaCompilerServiceTest {
     @Test
     public void completeExpression() {
         var uri = resourceUri("CompleteExpression.java");
-        var ctx = Parser.parseFile(uri).completionContext(3, 37).get();
+        var ctx = Parser.parseFile(uri).completionContext(3, 37);
         var focus = compiler.compileFocus(uri, ctx.line, ctx.character);
         var found = focus.completeMembers(uri, ctx.line, ctx.character);
         var names = insertText(found);
@@ -180,7 +180,7 @@ public class JavaCompilerServiceTest {
     @Test
     public void completeClass() {
         var uri = resourceUri("CompleteClass.java");
-        var ctx = Parser.parseFile(uri).completionContext(3, 23).get();
+        var ctx = Parser.parseFile(uri).completionContext(3, 23);
         var focus = compiler.compileFocus(uri, ctx.line, ctx.character);
         var found = focus.completeMembers(uri, ctx.line, ctx.character);
         var names = insertText(found);
@@ -193,7 +193,7 @@ public class JavaCompilerServiceTest {
     @Test
     public void completeImports() {
         var uri = resourceUri("CompleteImports.java");
-        var ctx = Parser.parseFile(uri).completionContext(1, 18).get();
+        var ctx = Parser.parseFile(uri).completionContext(1, 18);
         var focus = compiler.compileFocus(uri, ctx.line, ctx.character);
         var found = focus.completeMembers(uri, ctx.line, ctx.character);
         var names = insertText(found);

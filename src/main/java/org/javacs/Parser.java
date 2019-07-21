@@ -194,7 +194,7 @@ class Parser {
         return range(task, contents, path).map(range -> new Location(uri, range));
     }
 
-    Optional<CompletionContext> completionContext(int line, int character) {
+    CompletionContext completionContext(int line, int character) {
         LOG.info(
                 String.format(
                         "Finding completion position near %s(%d,%d)...",
@@ -348,9 +348,9 @@ class Parser {
         find.scan(root, null);
         if (find.result == null) {
             LOG.info("...found nothing near cursor!");
-            return Optional.empty();
+            return CompletionContext.UNKNOWN;
         }
-        return Optional.of(find.result);
+        return find.result;
     }
 
     List<FoldingRange> foldingRanges() {
@@ -1279,6 +1279,8 @@ class Parser {
 }
 
 class CompletionContext {
+    static final CompletionContext UNKNOWN = new CompletionContext(-1, -1, false, false, null, null);
+
     // 1-based
     final int line, character;
     final boolean inClass, inMethod;

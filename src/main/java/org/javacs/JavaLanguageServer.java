@@ -211,9 +211,9 @@ class JavaLanguageServer extends LanguageServer {
         var column = position.position.character + 1;
         LOG.info(String.format("Complete at %s(%d,%d)", uri.getPath(), line, column));
         // Figure out what kind of completion we want to do
-        var maybeCtx = Parser.parseFile(uri).completionContext(line, column);
         // TODO don't complete inside of comments
-        if (!maybeCtx.isPresent()) {
+        var ctx = Parser.parseFile(uri).completionContext(line, column);
+        if (ctx == CompletionContext.UNKNOWN) {
             var items = new ArrayList<CompletionItem>();
             for (var name : CompileBatch.TOP_LEVEL_KEYWORDS) {
                 var i = new CompletionItem();
@@ -225,7 +225,6 @@ class JavaLanguageServer extends LanguageServer {
             return Optional.of(new CompletionList(true, items));
         }
         // Compile again, focusing on a region that depends on what type of completion we want to do
-        var ctx = maybeCtx.get();
         List<CompletionItem> cs;
         boolean isIncomplete;
         try (var focus = compiler().compileFocus(uri, ctx.line, ctx.character)) {
