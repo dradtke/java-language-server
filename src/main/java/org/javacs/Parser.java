@@ -1259,7 +1259,7 @@ class Parser {
         var join = new StringJoiner("\n");
         for (var l : lines) join.add(l.toString());
         var html = join.toString();
-        return Docs.htmlToMarkdown(html);
+        return TipFormatter.asMarkdown(html);
     }
 
     static String asMarkdown(DocCommentTree comment) {

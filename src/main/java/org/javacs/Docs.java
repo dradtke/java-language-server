@@ -7,7 +7,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.logging.Logger;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import javax.tools.*;
 
@@ -61,29 +60,9 @@ public class Docs {
         return Optional.empty();
     }
 
-    private static final Pattern HTML_TAG = Pattern.compile("<(\\w+)>");
-
-    private static boolean isHtml(String text) {
-        var tags = HTML_TAG.matcher(text);
-        while (tags.find()) {
-            var tag = tags.group(1);
-            var close = String.format("</%s>", tag);
-            var findClose = text.indexOf(close, tags.end());
-            if (findClose != -1) return true;
-        }
-        return false;
-    }
-
-    /** If `commentText` looks like HTML, convert it to markdown */
-    public static String htmlToMarkdown(String commentText) {
-        if (isHtml(commentText)) {
-            return TipFormatter.asMarkdown(commentText);
-        } else return commentText;
-    }
-
     private static Optional<Path> cacheSrcZip;
 
-    static Optional<Path> srcZip() {
+    private static Optional<Path> srcZip() {
         if (cacheSrcZip == null) {
             cacheSrcZip = findSrcZip();
         }

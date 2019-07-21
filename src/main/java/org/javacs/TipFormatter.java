@@ -6,6 +6,7 @@ import java.io.StringWriter;
 import java.nio.CharBuffer;
 import java.util.function.Function;
 import java.util.logging.Logger;
+import java.util.regex.Pattern;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.OutputKeys;
@@ -126,13 +127,13 @@ class TipFormatter {
         }
     }
 
-    static String replaceTags(String in) {
+    private static String replaceTags(String in) {
         var out = new StringBuilder();
         parse(CharBuffer.wrap(in), out);
         return out.toString();
     }
 
-    static String asMarkdown(String html) {
+    private static String htmlToMarkdown(String html) {
         html = replaceTags(html);
 
         var doc = parse(html);
@@ -143,6 +144,28 @@ class TipFormatter {
         replaceNodes(doc, "code", contents -> String.format("`%s`", contents));
 
         return print(doc);
+    }
+
+    private static final Pattern HTML_TAG = Pattern.compile("<(\\w+)>");
+
+    private static boolean isHtml(String text) {
+        var tags = HTML_TAG.matcher(text);
+        while (tags.find()) {
+            var tag = tags.group(1);
+            var close = String.format("</%s>", tag);
+            var findClose = text.indexOf(close, tags.end());
+            if (findClose != -1) return true;
+        }
+        return false;
+    }
+
+    /** If `commentText` looks like HTML, convert it to markdown */
+    static String asMarkdown(String commentText) {
+        if (isHtml(commentText)) {
+            commentText = htmlToMarkdown(commentText);
+        }
+        commentText = replaceTags(commentText);
+        return commentText;
     }
 
     private static final Logger LOG = Logger.getLogger("main");
