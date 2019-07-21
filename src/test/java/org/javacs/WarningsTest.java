@@ -7,7 +7,6 @@ import java.util.ArrayList;
 import java.util.List;
 import org.javacs.lsp.Diagnostic;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 
 public class WarningsTest {
@@ -41,7 +40,6 @@ public class WarningsTest {
     }
 
     @Test
-    @Ignore // TODO
     public void referencePackagePrivateClassInFileWithDifferentName() {
         server.lint(List.of(FindResource.uri("org/javacs/example/ReferenceGotoPackagePrivate.java")));
         assertThat(errors, empty());

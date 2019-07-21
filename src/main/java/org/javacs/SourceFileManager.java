@@ -96,7 +96,7 @@ class SourceFileManager extends ForwardingJavaFileManager<StandardJavaFileManage
         }
     }
 
-    Iterable<? extends JavaFileObject> getJavaFileObjectsFromFiles(Iterable<? extends File> files) {
+    Collection<? extends JavaFileObject> getJavaFileObjectsFromFiles(Iterable<? extends File> files) {
         var result = new ArrayList<JavaFileObject>();
         for (var f : files) {
             result.add(new SourceFileObject(f.toPath()));

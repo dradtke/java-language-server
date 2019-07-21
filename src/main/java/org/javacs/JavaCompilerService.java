@@ -16,6 +16,7 @@ class JavaCompilerService {
     final Set<Path> classPath, docPath;
     final Set<String> addExports;
     final ReusableCompiler compiler = new ReusableCompiler();
+    final Set<String> warmPackages = new HashSet<>();
     final Docs docs;
     final Set<String> jdkClasses = Classes.jdkTopLevelClasses(), classPathClasses;
     // Diagnostics from the last compilation task
@@ -95,13 +96,45 @@ class JavaCompilerService {
         var files = new ArrayList<File>();
         for (var p : uris) files.add(new File(p));
         var sources = fileManager.getJavaFileObjectsFromFiles(files);
-        var list = new ArrayList<JavaFileObject>();
-        for (var s : sources) list.add(s);
-        return new CompileBatch(this, list);
+        return compileBatch(sources);
+    }
+
+    CompileBatch compilePaths(Collection<Path> paths) {
+        if (paths.isEmpty()) throw new RuntimeException("No source files");
+        var files = new ArrayList<File>();
+        for (var path : paths) files.add(path.toFile());
+        var sources = fileManager.getJavaFileObjectsFromFiles(files);
+        return compileBatch(sources);
     }
 
     CompileBatch compileBatch(Collection<? extends JavaFileObject> sources) {
+        warmUpPackages(sources);
         return new CompileBatch(this, sources);
+    }
+
+    /**
+     * The first time we compile a file in a new package, we need to compile all files in that package to discover
+     * package-private classes.
+     */
+    private void warmUpPackages(Collection<? extends JavaFileObject> sources) {
+        var needsCompile = new HashSet<Path>();
+        for (var source : sources) {
+            var uri = source.toUri();
+            var path = Paths.get(uri);
+            var pkg = FileStore.packageName(path);
+            if (!warmPackages.contains(pkg)) {
+                LOG.info("...first time compiling sources in package " + pkg);
+                var filesInPackage = FileStore.list(pkg);
+                needsCompile.addAll(filesInPackage);
+                warmPackages.add(pkg);
+            }
+        }
+        if (!needsCompile.isEmpty()) {
+            LOG.info("...compile " + needsCompile.size() + " files in new packages");
+            // TODO consider pruning each source to speed up compile times
+            var batch = compilePaths(needsCompile);
+            batch.close();
+        }
     }
 
     List<SymbolInformation> findSymbols(String query, int limit) {
