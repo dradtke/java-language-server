@@ -66,10 +66,24 @@ class Parser {
             if (type instanceof IdentifierTree) {
                 var id = (IdentifierTree) type;
                 var name = id.getName();
-                if (name.contentEquals("Test")
-                        || name.contentEquals("org.junit.Test")
-                        || name.contentEquals("Before")
-                        || name.contentEquals("org.junit.Before")) {
+                if (name.contentEquals("Test") || name.contentEquals("org.junit.Test")) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    boolean isCalledByTestFramework(TreePath path) {
+        var leaf = path.getLeaf();
+        if (!(leaf instanceof MethodTree)) return false;
+        var method = (MethodTree) leaf;
+        for (var ann : method.getModifiers().getAnnotations()) {
+            var type = ann.getAnnotationType();
+            if (type instanceof IdentifierTree) {
+                var id = (IdentifierTree) type;
+                var name = id.getName();
+                if (name.contentEquals("Before") || name.contentEquals("org.junit.Before")) {
                     return true;
                 }
             }
@@ -90,7 +104,7 @@ class Parser {
                         + "("
                         + method.getParameters()
                         + ")";
-        return signature.matches("public static void main\\(String[] .+\\)");
+        return signature.matches("public static void main\\(String\\[\\] .+\\)");
     }
 
     boolean isTestClass(TreePath path) {

@@ -841,6 +841,7 @@ class JavaLanguageServer extends LanguageServer {
             }
             if (!cacheParse.isTestMethod(d)
                     && !cacheParse.isTestClass(d)
+                    && !cacheParse.isCalledByTestFramework(d)
                     && !cacheParse.isOverride(d)
                     && !cacheParse.isMainMethod(d)) {
                 // Unresolved "_ references" code lens
