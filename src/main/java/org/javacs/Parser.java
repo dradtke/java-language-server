@@ -1,6 +1,7 @@
 package org.javacs;
 
 import com.sun.source.doctree.DocCommentTree;
+import com.sun.source.doctree.DocTree;
 import com.sun.source.tree.*;
 import com.sun.source.util.*;
 import java.io.IOException;
@@ -1252,6 +1253,26 @@ class Parser {
             t = t.getParentPath();
         }
         return Optional.empty();
+    }
+
+    static String asMarkdown(List<? extends DocTree> lines) {
+        var join = new StringJoiner("\n");
+        for (var l : lines) join.add(l.toString());
+        var html = join.toString();
+        return Docs.htmlToMarkdown(html);
+    }
+
+    static String asMarkdown(DocCommentTree comment) {
+        var lines = comment.getFirstSentence();
+        return asMarkdown(lines);
+    }
+
+    static MarkupContent asMarkupContent(DocCommentTree comment) {
+        var markdown = asMarkdown(comment);
+        var content = new MarkupContent();
+        content.kind = MarkupKind.Markdown;
+        content.value = markdown;
+        return content;
     }
 
     private static final Logger LOG = Logger.getLogger("main");

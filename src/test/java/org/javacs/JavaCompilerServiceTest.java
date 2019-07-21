@@ -205,10 +205,10 @@ public class JavaCompilerServiceTest {
     public void overloads() {
         var uri = resourceUri("Overloads.java");
         var found = compiler.compileFocus(uri, 3, 15).methodInvocation(uri, 3, 15).get();
-        var strings = found.overloads.stream().map(Object::toString).collect(Collectors.toList());
+        var strings = found.signatures.stream().map(s -> s.label).collect(Collectors.toList());
 
-        assertThat(strings, hasItem(containsString("print(int)")));
-        assertThat(strings, hasItem(containsString("print(java.lang.String)")));
+        assertThat(strings, hasItem(containsString("print(int i)")));
+        assertThat(strings, hasItem(containsString("print(String s)")));
     }
 
     @Test
@@ -259,13 +259,8 @@ public class JavaCompilerServiceTest {
     public void localDoc() {
         var uri = resourceUri("LocalMethodDoc.java");
         var invocation = compiler.compileFocus(uri, 3, 21).methodInvocation(uri, 3, 21).get();
-        var method = invocation.activeMethod.get();
-        var ptr = new Ptr(method);
-        var file = compiler.docs().find(ptr).get();
-        var parse = Parser.parseJavaFileObject(file);
-        var path = parse.fuzzyFind(ptr).get();
-        var doc = parse.doc(path);
-        assertThat(doc.toString(), containsString("A great method"));
+        var method = invocation.signatures.get(invocation.activeSignature);
+        assertThat(method.documentation.value, containsString("A great method"));
     }
 
     @Test

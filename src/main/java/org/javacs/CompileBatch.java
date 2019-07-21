@@ -1,6 +1,8 @@
 package org.javacs;
 
 import com.google.gson.JsonPrimitive;
+import com.sun.source.doctree.DocTree;
+import com.sun.source.doctree.ParamTree;
 import com.sun.source.tree.*;
 import com.sun.source.util.*;
 import java.io.IOException;
@@ -481,7 +483,7 @@ class CompileBatch implements AutoCloseable {
     }
 
     /** Find all overloads for the smallest method call that includes the cursor */
-    Optional<MethodInvocation> methodInvocation(URI file, int line, int character) {
+    Optional<SignatureHelp> methodInvocation(URI file, int line, int character) {
         LOG.info(String.format("Find method invocation around %s(%d,%d)...", file, line, character));
         var cursor = findPath(file, line, character);
         for (var path = cursor; path != null; path = path.getParentPath()) {
@@ -504,7 +506,7 @@ class CompileBatch implements AutoCloseable {
                         method instanceof ExecutableElement
                                 ? Optional.of((ExecutableElement) method)
                                 : Optional.empty();
-                return Optional.of(new MethodInvocation(invoke, activeMethod, activeParameter, results));
+                return Optional.of(asSignatureHelp(activeMethod, activeParameter, results));
             } else if (path.getLeaf() instanceof NewClassTree) {
                 // Find all overloads of method
                 LOG.info(String.format("...`%s` is a constructor invocation", path.getLeaf()));
@@ -524,10 +526,91 @@ class CompileBatch implements AutoCloseable {
                         method instanceof ExecutableElement
                                 ? Optional.of((ExecutableElement) method)
                                 : Optional.empty();
-                return Optional.of(new MethodInvocation(invoke, activeMethod, activeParameter, results));
+                return Optional.of(asSignatureHelp(activeMethod, activeParameter, results));
             }
         }
         return Optional.empty();
+    }
+
+    private SignatureHelp asSignatureHelp(
+            Optional<ExecutableElement> activeMethod, int activeParameter, List<ExecutableElement> overloads) {
+        // TODO use docs to get parameter names
+        var sigs = new ArrayList<SignatureInformation>();
+        for (var e : overloads) {
+            sigs.add(asSignatureInformation(e));
+        }
+        var activeSig = activeMethod.map(overloads::indexOf).orElse(0);
+        return new SignatureHelp(sigs, activeSig, activeParameter);
+    }
+
+    private SignatureInformation asSignatureInformation(ExecutableElement e) {
+        var i = new SignatureInformation();
+        // Get docs from source if possible, ExecutableElement if not
+        if (!addSignatureDocs(e, i)) {
+            i.parameters = signatureParamsFromMethod(e);
+        }
+        // Compute label from params (which came from either source or ExecutableElement)
+        var name = e.getSimpleName();
+        if (name.contentEquals("<init>")) name = e.getEnclosingElement().getSimpleName();
+        var args = new StringJoiner(", ");
+        for (var p : i.parameters) {
+            args.add(p.label);
+        }
+        i.label = name + "(" + args + ")";
+
+        return i;
+    }
+
+    private boolean addSignatureDocs(ExecutableElement e, SignatureInformation sig) {
+        // Find the file that contains e
+        var ptr = new Ptr(e);
+        var file = parent.docs().find(ptr);
+        if (!file.isPresent()) return false;
+        var parse = Parser.parseJavaFileObject(file.get());
+        // Find the tree
+        var path = parse.fuzzyFind(ptr);
+        if (!path.isPresent()) return false;
+        if (!(path.get().getLeaf() instanceof MethodTree)) return false;
+        var method = (MethodTree) path.get().getLeaf();
+        // Find the docstring on method, or empty doc if there is none
+        var doc = parse.doc(path.get());
+        sig.documentation = Parser.asMarkupContent(doc);
+        // Get param docs from @param tags
+        var paramComments = new HashMap<String, String>();
+        for (var tag : doc.getBlockTags()) {
+            if (tag.getKind() == DocTree.Kind.PARAM) {
+                var param = (ParamTree) tag;
+                paramComments.put(param.getName().toString(), Parser.asMarkdown(param.getDescription()));
+            }
+        }
+        // Get param names from source
+        sig.parameters = new ArrayList<ParameterInformation>();
+        for (var i = 0; i < e.getParameters().size(); i++) {
+            var fromSource = method.getParameters().get(i);
+            var fromType = e.getParameters().get(i);
+            var info = new ParameterInformation();
+            var name = fromSource.getName().toString();
+            var type = ShortTypePrinter.print(fromType.asType());
+            info.label = type + " " + name;
+            if (paramComments.containsKey(name)) {
+                var markdown = paramComments.get(name);
+                info.documentation = new MarkupContent("markdown", markdown);
+            }
+            sig.parameters.add(info);
+        }
+        return true;
+    }
+
+    private List<ParameterInformation> signatureParamsFromMethod(ExecutableElement e) {
+        var missingParamNames = ShortTypePrinter.missingParamNames(e);
+        var ps = new ArrayList<ParameterInformation>();
+        for (var v : e.getParameters()) {
+            var p = new ParameterInformation();
+            if (missingParamNames) p.label = ShortTypePrinter.print(v.asType());
+            else p.label = v.getSimpleName().toString();
+            ps.add(p);
+        }
+        return ps;
     }
 
     List<CompletionItem> completeIdentifiers(
@@ -1396,24 +1479,4 @@ class CompileBatch implements AutoCloseable {
     }
 
     private static final Logger LOG = Logger.getLogger("main");
-}
-
-class MethodInvocation {
-    /** MethodInvocationTree or NewClassTree */
-    final ExpressionTree tree;
-
-    final Optional<ExecutableElement> activeMethod;
-    final int activeParameter;
-    final List<ExecutableElement> overloads;
-
-    MethodInvocation(
-            ExpressionTree tree,
-            Optional<ExecutableElement> activeMethod,
-            int activeParameter,
-            List<ExecutableElement> overloads) {
-        this.tree = tree;
-        this.activeMethod = activeMethod;
-        this.activeParameter = activeParameter;
-        this.overloads = overloads;
-    }
 }

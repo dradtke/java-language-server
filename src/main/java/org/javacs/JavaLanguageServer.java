@@ -1,7 +1,6 @@
 package org.javacs;
 
 import com.google.gson.*;
-import com.sun.source.doctree.*;
 import com.sun.source.tree.*;
 import java.net.URI;
 import java.nio.file.Path;
@@ -278,7 +277,7 @@ class JavaLanguageServer extends LanguageServer {
         if (!path.isPresent()) return Optional.empty();
         // Parse the doctree associated with el
         var docTree = parse.doc(path.get());
-        var string = asMarkupContent(docTree);
+        var string = Parser.asMarkupContent(docTree);
         return Optional.of(string);
     }
 
@@ -307,26 +306,6 @@ class JavaLanguageServer extends LanguageServer {
         }
         var details = String.format("%s %s(%s)", methodTree.getReturnType(), methodTree.getName(), args);
         return Optional.of(details);
-    }
-
-    private String asMarkdown(List<? extends DocTree> lines) {
-        var join = new StringJoiner("\n");
-        for (var l : lines) join.add(l.toString());
-        var html = join.toString();
-        return Docs.htmlToMarkdown(html);
-    }
-
-    private String asMarkdown(DocCommentTree comment) {
-        var lines = comment.getFirstSentence();
-        return asMarkdown(lines);
-    }
-
-    private MarkupContent asMarkupContent(DocCommentTree comment) {
-        var markdown = asMarkdown(comment);
-        var content = new MarkupContent();
-        content.kind = MarkupKind.Markdown;
-        content.value = markdown;
-        return content;
     }
 
     @Override
@@ -411,7 +390,7 @@ class JavaLanguageServer extends LanguageServer {
         var path = parse.fuzzyFind(ptr);
         if (!path.isPresent()) return Optional.empty();
         var doc = parse.doc(path.get());
-        var md = asMarkdown(doc);
+        var md = Parser.asMarkdown(doc);
         return Optional.of(md);
     }
 
@@ -453,85 +432,6 @@ class JavaLanguageServer extends LanguageServer {
         }
     }
 
-    private SignatureInformation asSignatureInformation(ExecutableElement e) {
-        // Figure out parameter info from source or from ExecutableElement
-        var i = new SignatureInformation();
-        var ptr = new Ptr(e);
-        var ps = signatureParamsFromDocs(ptr).orElse(signatureParamsFromMethod(e));
-        i.parameters = ps;
-
-        // Compute label from params (which came from either source or ExecutableElement)
-        var name = e.getSimpleName();
-        if (name.contentEquals("<init>")) name = e.getEnclosingElement().getSimpleName();
-        var args = new StringJoiner(", ");
-        for (var p : ps) {
-            args.add(p.label);
-        }
-        i.label = name + "(" + args + ")";
-
-        return i;
-    }
-
-    private List<ParameterInformation> signatureParamsFromMethod(ExecutableElement e) {
-        var missingParamNames = ShortTypePrinter.missingParamNames(e);
-        var ps = new ArrayList<ParameterInformation>();
-        for (var v : e.getParameters()) {
-            var p = new ParameterInformation();
-            if (missingParamNames) p.label = ShortTypePrinter.print(v.asType());
-            else p.label = v.getSimpleName().toString();
-            ps.add(p);
-        }
-        return ps;
-    }
-
-    private Optional<List<ParameterInformation>> signatureParamsFromDocs(Ptr ptr) {
-        // Find the file ptr point to, and parse it
-        var file = compiler().docs().find(ptr);
-        if (!file.isPresent()) return Optional.empty();
-        var parse = Parser.parseJavaFileObject(file.get());
-        // Find the tree
-        var path = parse.fuzzyFind(ptr);
-        if (!path.isPresent()) return Optional.empty();
-        if (!(path.get().getLeaf() instanceof MethodTree)) return Optional.empty();
-        var method = (MethodTree) path.get().getLeaf();
-        // Find the docstring on method, or empty doc if there is none
-        var doc = parse.doc(path.get());
-        // Get param docs from @param tags
-        var ps = new ArrayList<ParameterInformation>();
-        var paramComments = new HashMap<String, String>();
-        for (var tag : doc.getBlockTags()) {
-            if (tag.getKind() == DocTree.Kind.PARAM) {
-                var param = (ParamTree) tag;
-                paramComments.put(param.getName().toString(), asMarkdown(param.getDescription()));
-            }
-        }
-        // Get param names from source
-        for (var param : method.getParameters()) {
-            var info = new ParameterInformation();
-            var name = param.getName().toString();
-            info.label = name;
-            if (paramComments.containsKey(name)) {
-                var markdown = paramComments.get(name);
-                info.documentation = new MarkupContent("markdown", markdown);
-            } else {
-                var markdown = Objects.toString(param.getType(), "");
-                info.documentation = new MarkupContent("markdown", markdown);
-            }
-            ps.add(info);
-        }
-        return Optional.of(ps);
-    }
-
-    private SignatureHelp asSignatureHelp(MethodInvocation invoke) {
-        // TODO use docs to get parameter names
-        var sigs = new ArrayList<SignatureInformation>();
-        for (var e : invoke.overloads) {
-            sigs.add(asSignatureInformation(e));
-        }
-        var activeSig = invoke.activeMethod.map(invoke.overloads::indexOf).orElse(0);
-        return new SignatureHelp(sigs, activeSig, invoke.activeParameter);
-    }
-
     @Override
     public Optional<SignatureHelp> signatureHelp(TextDocumentPositionParams position) {
         var uri = position.textDocument.uri;
@@ -539,8 +439,7 @@ class JavaLanguageServer extends LanguageServer {
         var line = position.position.line + 1;
         var column = position.position.character + 1;
         try (var focus = compiler().compileFocus(uri, line, column)) {
-            var help = focus.methodInvocation(uri, line, column).map(this::asSignatureHelp);
-            return help;
+            return focus.methodInvocation(uri, line, column);
         }
     }
 
