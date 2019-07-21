@@ -1,5 +1,6 @@
 package org.javacs;
 
+import com.google.gson.JsonPrimitive;
 import com.sun.source.tree.*;
 import com.sun.source.util.*;
 import java.io.IOException;
@@ -18,11 +19,7 @@ import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.*;
 import javax.tools.*;
-import org.javacs.lsp.DiagnosticSeverity;
-import org.javacs.lsp.DiagnosticTag;
-import org.javacs.lsp.Position;
-import org.javacs.lsp.PublishDiagnosticsParams;
-import org.javacs.lsp.Range;
+import org.javacs.lsp.*;
 
 class CompileBatch implements AutoCloseable {
     static final int MAX_COMPLETION_ITEMS = 50;
@@ -140,7 +137,7 @@ class CompileBatch implements AutoCloseable {
         return byUri.values();
     }
 
-    private static int severity(Diagnostic.Kind kind) {
+    private static int severity(javax.tools.Diagnostic.Kind kind) {
         switch (kind) {
             case ERROR:
                 return DiagnosticSeverity.Error;
@@ -196,7 +193,7 @@ class CompileBatch implements AutoCloseable {
         return d;
     }
 
-    private org.javacs.lsp.Diagnostic asDiagnostic(Diagnostic<? extends JavaFileObject> java) {
+    private org.javacs.lsp.Diagnostic asDiagnostic(javax.tools.Diagnostic<? extends JavaFileObject> java) {
         // Check that error is in an open file
         var uri = java.getSource().toUri();
         // Find start and end position
@@ -475,7 +472,7 @@ class CompileBatch implements AutoCloseable {
 
     private boolean hasErrors(URI uri) {
         for (var d : parent.diags) {
-            if (d.getKind() != Diagnostic.Kind.ERROR) continue;
+            if (d.getKind() != javax.tools.Diagnostic.Kind.ERROR) continue;
             if (!d.getSource().toUri().equals(uri)) continue;
             if (d.getCode().equals("compiler.err.cant.resolve.location")) continue;
             return true;
@@ -533,19 +530,19 @@ class CompileBatch implements AutoCloseable {
         return Optional.empty();
     }
 
-    List<Completion> completeIdentifiers(
+    List<CompletionItem> completeIdentifiers(
             URI uri, int line, int character, boolean insideClass, boolean insideMethod, String partialName) {
         LOG.info(String.format("Completing identifiers starting with `%s`...", partialName));
 
         var root = root(uri);
-        var result = new ArrayList<Completion>();
+        var result = new ArrayList<CompletionItem>();
 
         // Add snippets
         if (!insideClass) {
             // If no package declaration is present, suggest package [inferred name];
             if (root.getPackage() == null) {
                 var name = FileStore.suggestedPackageName(Paths.get(uri));
-                result.add(Completion.ofSnippet("package " + name, "package " + name + ";\n\n"));
+                result.add(snippetCompletion("package " + name, "package " + name + ";\n\n"));
             }
             // If no class declaration is present, suggest class [file name]
             var hasClassDeclaration = false;
@@ -557,7 +554,7 @@ class CompileBatch implements AutoCloseable {
             if (!hasClassDeclaration) {
                 var name = Paths.get(uri).getFileName().toString();
                 name = name.substring(0, name.length() - ".java".length());
-                result.add(Completion.ofSnippet("class " + name, "class " + name + " {\n    $0\n}"));
+                result.add(snippetCompletion("class " + name, "class " + name + " {\n    $0\n}"));
             }
         }
         // Add identifiers
@@ -574,8 +571,8 @@ class CompileBatch implements AutoCloseable {
         return result;
     }
 
-    List<Completion> completeAnnotations(URI uri, int line, int character, String partialName) {
-        var result = new ArrayList<Completion>();
+    List<CompletionItem> completeAnnotations(URI uri, int line, int character, String partialName) {
+        var result = new ArrayList<CompletionItem>();
         // Add @Override ... snippet
         if ("Override".startsWith(partialName)) {
             // TODO filter out already-implemented methods using thisMethods
@@ -586,7 +583,7 @@ class CompileBatch implements AutoCloseable {
 
                 var label = "@Override " + ShortTypePrinter.printMethod(method);
                 var snippet = "Override\n" + new TemplatePrinter().printMethod(method) + " {\n    $0\n}";
-                var override = Completion.ofSnippet(label, snippet);
+                var override = snippetCompletion(label, snippet);
                 if (!alreadyShown.contains(label)) {
                     result.add(override);
                     alreadyShown.add(label);
@@ -600,7 +597,7 @@ class CompileBatch implements AutoCloseable {
     }
 
     /** Find all case options in the switch expression surrounding line:character */
-    List<Completion> completeCases(URI uri, int line, int character) {
+    List<CompletionItem> completeCases(URI uri, int line, int character) {
         var cursor = findPath(uri, line, character);
         LOG.info(String.format("Complete enum constants following `%s`...", cursor.getLeaf()));
 
@@ -625,16 +622,16 @@ class CompileBatch implements AutoCloseable {
             return completeIdentifiers(uri, line, character, true, true, ""); // TODO pass partial name
         }
         LOG.info(String.format("...switched expression has definition `%s`", definition));
-        var result = new ArrayList<Completion>();
+        var result = new ArrayList<CompletionItem>();
         for (var member : definition.getEnclosedElements()) {
-            if (member.getKind() == ElementKind.ENUM_CONSTANT) result.add(Completion.ofElement(member));
+            if (member.getKind() == ElementKind.ENUM_CONSTANT) result.add(elementCompletion(member));
         }
 
         return result;
     }
 
     /** Find all members of expression ending at line:character */
-    List<Completion> completeMembers(URI uri, int line, int character) {
+    List<CompletionItem> completeMembers(URI uri, int line, int character) {
         var path = findPath(uri, line, character);
         var element = trees.getElement(path);
 
@@ -647,12 +644,12 @@ class CompileBatch implements AutoCloseable {
         }
     }
 
-    List<Completion> completeReferences(URI uri, int line, int character) {
+    List<CompletionItem> completeReferences(URI uri, int line, int character) {
         var path = findPath(uri, line, character);
         var scope = trees.getScope(path);
         var element = trees.getElement(path);
         if (element instanceof TypeElement) {
-            var result = new ArrayList<Completion>();
+            var result = new ArrayList<CompletionItem>();
             var t = (TypeElement) element;
 
             LOG.info(String.format("...completing static methods of %s", t.getQualifiedName()));
@@ -661,12 +658,12 @@ class CompileBatch implements AutoCloseable {
             for (var member : t.getEnclosedElements()) {
                 if (member.getKind() == ElementKind.METHOD
                         && trees.isAccessible(scope, member, (DeclaredType) t.asType())) {
-                    result.add(Completion.ofElement(member));
+                    result.add(elementCompletion(member));
                 }
             }
 
             // Add ::new
-            result.add(Completion.ofKeyword("new"));
+            result.add(keywordCompletion("new"));
 
             return result;
         } else {
@@ -674,8 +671,8 @@ class CompileBatch implements AutoCloseable {
         }
     }
 
-    private List<Completion> completePackageMembers(TreePath path) {
-        var result = new ArrayList<Completion>();
+    private List<CompletionItem> completePackageMembers(TreePath path) {
+        var result = new ArrayList<CompletionItem>();
         var scope = trees.getScope(path);
         var element = (PackageElement) trees.getElement(path);
 
@@ -686,24 +683,24 @@ class CompileBatch implements AutoCloseable {
             // If the package member is a TypeElement, like a class or interface, check if it's accessible
             if (member instanceof TypeElement) {
                 if (trees.isAccessible(scope, (TypeElement) member)) {
-                    result.add(Completion.ofElement(member));
+                    result.add(elementCompletion(member));
                 }
             }
             // Otherwise, just assume it's accessible and add it to the list
-            else result.add(Completion.ofElement(member));
+            else result.add(elementCompletion(member));
         }
         // Add sub-package names resolved as String by guava ClassPath
         var parent = element.getQualifiedName().toString();
         var subs = subPackages(parent);
         for (var sub : subs) {
-            result.add(Completion.ofPackagePart(sub, StringSearch.lastName(sub)));
+            result.add(packageCompletion(sub, StringSearch.lastName(sub)));
         }
 
         return result;
     }
 
-    private List<Completion> completeTypeMembers(TreePath path) {
-        var result = new ArrayList<Completion>();
+    private List<CompletionItem> completeTypeMembers(TreePath path) {
+        var result = new ArrayList<CompletionItem>();
         var scope = trees.getScope(path);
         var element = (TypeElement) trees.getElement(path);
 
@@ -714,19 +711,19 @@ class CompileBatch implements AutoCloseable {
             // TODO if this is a member reference :: then include non-statics
             if (member.getModifiers().contains(Modifier.STATIC)
                     && trees.isAccessible(scope, member, (DeclaredType) element.asType())) {
-                result.add(Completion.ofElement(member));
+                result.add(elementCompletion(member));
             }
         }
 
         // Add .class
-        result.add(Completion.ofKeyword("class"));
-        result.add(Completion.ofKeyword("this"));
-        result.add(Completion.ofKeyword("super"));
+        result.add(keywordCompletion("class"));
+        result.add(keywordCompletion("this"));
+        result.add(keywordCompletion("super"));
 
         return result;
     }
 
-    private List<Completion> completeInstanceMembers(TreePath path) {
+    private List<CompletionItem> completeInstanceMembers(TreePath path) {
         var scope = trees.getScope(path);
         var type = trees.getTypeMirror(path);
         if (type == null) {
@@ -737,7 +734,7 @@ class CompileBatch implements AutoCloseable {
             LOG.warning("...don't know how to complete members of type " + type);
             return List.of();
         }
-        var result = new ArrayList<Completion>();
+        var result = new ArrayList<CompletionItem>();
         var ts = supersWithSelf(type);
         var alreadyAdded = new HashSet<String>();
         LOG.info(String.format("...completing virtual members of %s and %d supers", type, ts.size()));
@@ -758,20 +755,20 @@ class CompileBatch implements AutoCloseable {
                 // If type is a DeclaredType, check accessibility of member
                 if (type instanceof DeclaredType) {
                     if (trees.isAccessible(scope, member, (DeclaredType) type)) {
-                        result.add(Completion.ofElement(member));
+                        result.add(elementCompletion(member));
                         alreadyAdded.add(member.toString());
                     }
                 }
                 // Otherwise, accessibility rules are very complicated
                 // Give up and just declare that everything is accessible
                 else {
-                    result.add(Completion.ofElement(member));
+                    result.add(elementCompletion(member));
                     alreadyAdded.add(member.toString());
                 }
             }
         }
         if (type instanceof ArrayType) {
-            result.add(Completion.ofKeyword("length"));
+            result.add(keywordCompletion("length"));
         }
         return result;
     }
@@ -1063,28 +1060,28 @@ class CompileBatch implements AutoCloseable {
         return result;
     }
 
-    private static void addKeywords(String[] keywords, String partialName, List<Completion> result) {
+    private void addKeywords(String[] keywords, String partialName, List<CompletionItem> result) {
         for (var k : keywords) {
             if (StringSearch.matchesPartialName(k, partialName)) {
-                result.add(Completion.ofKeyword(k));
+                result.add(keywordCompletion(k));
             }
         }
     }
 
     private void completeScopeIdentifiers(
-            URI uri, int line, int character, String partialName, List<Completion> result) {
+            URI uri, int line, int character, String partialName, List<CompletionItem> result) {
         var root = root(uri);
         // Add locals
         var locals = scopeMembers(uri, line, character, partialName);
         for (var m : locals) {
-            result.add(Completion.ofElement(m));
+            result.add(elementCompletion(m));
         }
         LOG.info(String.format("...found %d locals", locals.size()));
 
         // Add static imports
         var staticImports = staticImports(uri, partialName);
         for (var m : staticImports) {
-            result.add(Completion.ofElement(m));
+            result.add(elementCompletion(m));
         }
         LOG.info(String.format("...found %d static imports", staticImports.size()));
 
@@ -1104,7 +1101,7 @@ class CompileBatch implements AutoCloseable {
                 if (tooManyItems(result.size())) return;
                 if (!matchesPartialName.test(c)) continue;
                 if (isSamePackage(c, packageName) || isPublicClassFile(c)) {
-                    result.add(Completion.ofClassName(c, isImported(uri, c)));
+                    result.add(classNameCompletion(c, isImported(uri, c)));
                 }
             }
 
@@ -1115,7 +1112,7 @@ class CompileBatch implements AutoCloseable {
                 if (tooManyItems(result.size())) return;
                 if (!matchesPartialName.test(c)) continue;
                 if (isSamePackage(c, packageName) || isPublicClassFile(c)) {
-                    result.add(Completion.ofClassName(c, isImported(uri, c)));
+                    result.add(classNameCompletion(c, isImported(uri, c)));
                     classPathNames.add(c);
                 }
             }
@@ -1165,16 +1162,16 @@ class CompileBatch implements AutoCloseable {
         }
     }
 
-    private List<Completion> accessibleClasses(
+    private List<CompletionItem> accessibleClasses(
             URI fromUri, Path toFile, String partialName, String fromPackage, Set<String> skip) {
         var parse = Parser.parseFile(toFile.toUri());
         var classNames = parse.accessibleClasses(partialName, fromPackage);
-        var result = new ArrayList<Completion>();
+        var result = new ArrayList<CompletionItem>();
         for (var name : classNames) {
             // If class was already autocompleted using the classpath, skip it
             if (skip.contains(name)) continue;
             // Otherwise, add this name!
-            result.add(Completion.ofClassName(name, isImported(fromUri, name)));
+            result.add(classNameCompletion(name, isImported(fromUri, name)));
         }
         return result;
     }
@@ -1274,75 +1271,131 @@ class CompileBatch implements AutoCloseable {
         return find.found;
     }
 
+    private CompletionItem snippetCompletion(String label, String snippet) {
+        var i = new CompletionItem();
+        i.label = label;
+        i.kind = CompletionItemKind.Snippet;
+        i.insertText = snippet;
+        i.insertTextFormat = InsertTextFormat.Snippet;
+        i.sortText = 1 + i.label;
+        return i;
+    }
+
+    private CompletionItem elementCompletion(Element e) {
+        var i = new CompletionItem();
+        i.label = e.getSimpleName().toString();
+        i.kind = completionItemKind(e);
+        if (e instanceof ExecutableElement) {
+            var method = (ExecutableElement) e;
+            i.detail = defaultDetails(method);
+        } else {
+            i.detail = ShortTypePrinter.print(e.asType());
+        }
+        // TODO prioritize based on usage?
+        // TODO prioritize based on scope
+        if (isMemberOfObject(e)) {
+            i.sortText = 9 + i.label;
+        } else {
+            i.sortText = 2 + i.label;
+        }
+        // Save pointer for method and class doc resultion
+        var ptr = new Ptr(e);
+        i.data = new JsonPrimitive(ptr.toString());
+        return i;
+    }
+
+    // Detailed name will be resolved later, using docs to fill in method names
+    private String defaultDetails(ExecutableElement method) {
+        var args = new StringJoiner(", ");
+        var missingParamNames =
+                method.getParameters().stream().allMatch(p -> p.getSimpleName().toString().matches("arg\\d+"));
+        for (var p : method.getParameters()) {
+            if (missingParamNames) args.add(ShortTypePrinter.print(p.asType()));
+            else args.add(p.getSimpleName().toString());
+        }
+        return String.format("%s %s(%s)", ShortTypePrinter.print(method.getReturnType()), method.getSimpleName(), args);
+    }
+
+    private Integer completionItemKind(Element e) {
+        switch (e.getKind()) {
+            case ANNOTATION_TYPE:
+                return CompletionItemKind.Interface;
+            case CLASS:
+                return CompletionItemKind.Class;
+            case CONSTRUCTOR:
+                return CompletionItemKind.Constructor;
+            case ENUM:
+                return CompletionItemKind.Enum;
+            case ENUM_CONSTANT:
+                return CompletionItemKind.EnumMember;
+            case EXCEPTION_PARAMETER:
+                return CompletionItemKind.Property;
+            case FIELD:
+                return CompletionItemKind.Field;
+            case STATIC_INIT:
+            case INSTANCE_INIT:
+                return CompletionItemKind.Function;
+            case INTERFACE:
+                return CompletionItemKind.Interface;
+            case LOCAL_VARIABLE:
+                return CompletionItemKind.Variable;
+            case METHOD:
+                return CompletionItemKind.Method;
+            case PACKAGE:
+                return CompletionItemKind.Module;
+            case PARAMETER:
+                return CompletionItemKind.Property;
+            case RESOURCE_VARIABLE:
+                return CompletionItemKind.Variable;
+            case TYPE_PARAMETER:
+                return CompletionItemKind.TypeParameter;
+            case OTHER:
+            default:
+                return null;
+        }
+    }
+
+    private boolean isMemberOfObject(Element e) {
+        var parent = e.getEnclosingElement();
+        if (parent instanceof TypeElement) {
+            var type = (TypeElement) parent;
+            return type.getQualifiedName().contentEquals("java.lang.Object");
+        }
+        return false;
+    }
+
+    private CompletionItem keywordCompletion(String keyword) {
+        var i = new CompletionItem();
+        i.label = keyword;
+        i.kind = CompletionItemKind.Keyword;
+        i.detail = "keyword";
+        i.sortText = 3 + i.label;
+        return i;
+    }
+
+    private CompletionItem packageCompletion(String fullName, String name) {
+        var i = new CompletionItem();
+        i.label = name;
+        i.kind = CompletionItemKind.Module;
+        i.detail = fullName;
+        i.sortText = 2 + i.label;
+        return i;
+    }
+
+    private CompletionItem classNameCompletion(String name, boolean isImported) {
+        var i = new CompletionItem();
+        i.label = StringSearch.lastName(name);
+        i.kind = CompletionItemKind.Class;
+        i.detail = name;
+        if (isImported) {
+            i.sortText = 2 + i.label;
+        } else {
+            i.sortText = 4 + i.label;
+        }
+        return i;
+    }
+
     private static final Logger LOG = Logger.getLogger("main");
-}
-
-/**
- * Union of the different types of completion provided by JavaCompilerService. Only one of the members will be non-null.
- */
-class Completion {
-    final Element element;
-    final PackagePart packagePart;
-    final String keyword;
-    final ClassName className;
-    final Snippet snippet; // TODO separate label and insertText
-
-    private Completion(Element element, PackagePart packagePart, String keyword, ClassName className, Snippet snippet) {
-        this.element = element;
-        this.packagePart = packagePart;
-        this.keyword = keyword;
-        this.className = className;
-        this.snippet = snippet;
-    }
-
-    static Completion ofElement(Element element) {
-        return new Completion(element, null, null, null, null);
-    }
-
-    static Completion ofPackagePart(String fullName, String name) {
-        return new Completion(null, new PackagePart(fullName, name), null, null, null);
-    }
-
-    static Completion ofKeyword(String keyword) {
-        return new Completion(null, null, keyword, null, null);
-    }
-
-    static Completion ofClassName(String className, boolean isImported) {
-        return new Completion(null, null, null, new ClassName(className, isImported), null);
-    }
-
-    static Completion ofSnippet(String label, String snippet) {
-        return new Completion(null, null, null, null, new Snippet(label, snippet));
-    }
-
-    static class ClassName {
-        // TODO keep package and class name separate to avoid inner-class problems
-        final String name;
-        final boolean isImported;
-
-        ClassName(String name, boolean isImported) {
-            this.name = name;
-            this.isImported = isImported;
-        }
-    }
-
-    static class PackagePart {
-        final String fullName, name;
-
-        PackagePart(String fullName, String name) {
-            this.fullName = fullName;
-            this.name = name;
-        }
-    }
-
-    static class Snippet {
-        final String label, snippet;
-
-        Snippet(String label, String snippet) {
-            this.label = label;
-            this.snippet = snippet;
-        }
-    }
 }
 
 class MethodInvocation {

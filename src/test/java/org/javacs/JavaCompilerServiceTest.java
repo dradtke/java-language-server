@@ -16,7 +16,7 @@ import java.util.Set;
 import java.util.StringJoiner;
 import java.util.stream.Collectors;
 import javax.lang.model.element.Element;
-import org.javacs.lsp.PublishDiagnosticsParams;
+import org.javacs.lsp.*;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -74,14 +74,14 @@ public class JavaCompilerServiceTest {
         assertThat(found, notNullValue());
     }
 
-    private List<String> completionNames(List<Completion> found) {
+    private List<String> insertText(List<CompletionItem> found) {
         var result = new ArrayList<String>();
         for (var c : found) {
-            if (c.element != null) result.add(c.element.getSimpleName().toString());
-            else if (c.packagePart != null) result.add(c.packagePart.name);
-            else if (c.keyword != null) result.add(c.keyword);
-            else if (c.className != null) result.add(StringSearch.lastName(c.className.name));
-            else if (c.snippet != null) result.add(c.snippet.snippet);
+            if (c.insertText != null) {
+                result.add(c.insertText);
+            } else {
+                result.add(c.label);
+            }
         }
         return result;
     }
@@ -130,7 +130,7 @@ public class JavaCompilerServiceTest {
         var ctx = Parser.parseFile(uri).completionContext(13, 21).get();
         var focus = compiler.compileFocus(uri, ctx.line, ctx.character);
         var found = focus.completeIdentifiers(uri, ctx.line, ctx.character, ctx.inClass, ctx.inMethod, ctx.partialName);
-        var names = completionNames(found);
+        var names = insertText(found);
         assertThat(names, hasItem("completeLocal"));
         assertThat(names, hasItem("completeParam"));
         //        assertThat(names, hasItem("super"));
@@ -147,7 +147,7 @@ public class JavaCompilerServiceTest {
         var uri = resourceUri("CompleteMembers.java");
         var focus = compiler.compileFocus(uri, 3, 14);
         var found = focus.completeMembers(uri, 3, 14);
-        var names = completionNames(found);
+        var names = insertText(found);
         assertThat(names, hasItem("subMethod"));
         assertThat(names, hasItem("superMethod"));
         assertThat(names, hasItem("equals"));
@@ -159,7 +159,7 @@ public class JavaCompilerServiceTest {
         var ctx = Parser.parseFile(uri).completionContext(3, 15).get();
         var focus = compiler.compileFocus(uri, ctx.line, ctx.character);
         var found = focus.completeMembers(uri, ctx.line, ctx.character);
-        var names = completionNames(found);
+        var names = insertText(found);
         assertThat(names, hasItem("subMethod"));
         assertThat(names, hasItem("superMethod"));
         assertThat(names, hasItem("equals"));
@@ -171,7 +171,7 @@ public class JavaCompilerServiceTest {
         var ctx = Parser.parseFile(uri).completionContext(3, 37).get();
         var focus = compiler.compileFocus(uri, ctx.line, ctx.character);
         var found = focus.completeMembers(uri, ctx.line, ctx.character);
-        var names = completionNames(found);
+        var names = insertText(found);
         assertThat(names, hasItem("instanceMethod"));
         assertThat(names, not(hasItem("create")));
         assertThat(names, hasItem("equals"));
@@ -183,7 +183,7 @@ public class JavaCompilerServiceTest {
         var ctx = Parser.parseFile(uri).completionContext(3, 23).get();
         var focus = compiler.compileFocus(uri, ctx.line, ctx.character);
         var found = focus.completeMembers(uri, ctx.line, ctx.character);
-        var names = completionNames(found);
+        var names = insertText(found);
         assertThat(names, hasItems("staticMethod", "staticField"));
         assertThat(names, hasItems("class"));
         assertThat(names, not(hasItem("instanceMethod")));
@@ -196,7 +196,7 @@ public class JavaCompilerServiceTest {
         var ctx = Parser.parseFile(uri).completionContext(1, 18).get();
         var focus = compiler.compileFocus(uri, ctx.line, ctx.character);
         var found = focus.completeMembers(uri, ctx.line, ctx.character);
-        var names = completionNames(found);
+        var names = insertText(found);
         assertThat(names, hasItem("List"));
         assertThat(names, hasItem("concurrent"));
     }

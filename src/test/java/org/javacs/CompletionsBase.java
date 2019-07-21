@@ -1,6 +1,5 @@
 package org.javacs;
 
-import com.google.gson.Gson;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -35,7 +34,6 @@ public class CompletionsBase {
         var items = items(file, row, column);
         var result = new HashSet<String>();
         for (var i : items) {
-            i.data = new Gson().toJsonTree(i.data);
             var resolved = resolve(i);
             result.add(resolved.detail);
         }

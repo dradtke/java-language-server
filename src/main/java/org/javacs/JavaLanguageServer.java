@@ -203,58 +203,6 @@ class JavaLanguageServer extends LanguageServer {
         }
     }
 
-    private Integer completionItemKind(Element e) {
-        switch (e.getKind()) {
-            case ANNOTATION_TYPE:
-                return CompletionItemKind.Interface;
-            case CLASS:
-                return CompletionItemKind.Class;
-            case CONSTRUCTOR:
-                return CompletionItemKind.Constructor;
-            case ENUM:
-                return CompletionItemKind.Enum;
-            case ENUM_CONSTANT:
-                return CompletionItemKind.EnumMember;
-            case EXCEPTION_PARAMETER:
-                return CompletionItemKind.Property;
-            case FIELD:
-                return CompletionItemKind.Field;
-            case STATIC_INIT:
-            case INSTANCE_INIT:
-                return CompletionItemKind.Function;
-            case INTERFACE:
-                return CompletionItemKind.Interface;
-            case LOCAL_VARIABLE:
-                return CompletionItemKind.Variable;
-            case METHOD:
-                return CompletionItemKind.Method;
-            case PACKAGE:
-                return CompletionItemKind.Module;
-            case PARAMETER:
-                return CompletionItemKind.Property;
-            case RESOURCE_VARIABLE:
-                return CompletionItemKind.Variable;
-            case TYPE_PARAMETER:
-                return CompletionItemKind.TypeParameter;
-            case OTHER:
-            default:
-                return null;
-        }
-    }
-
-    private boolean isMemberOfObject(Element e) {
-        var parent = e.getEnclosingElement();
-        if (parent instanceof TypeElement) {
-            var type = (TypeElement) parent;
-            return type.getQualifiedName().contentEquals("java.lang.Object");
-        }
-        return false;
-    }
-
-    // TODO completion shows error when you open VSCode and only this file is open
-    /** Cache of completions from the last call to `completion` */
-    private final Map<String, Completion> lastCompletions = new HashMap<>();
-
     @Override
     public Optional<CompletionList> completion(TextDocumentPositionParams position) {
         var started = Instant.now();
@@ -279,7 +227,7 @@ class JavaLanguageServer extends LanguageServer {
         }
         // Compile again, focusing on a region that depends on what type of completion we want to do
         var ctx = maybeCtx.get();
-        List<Completion> cs;
+        List<CompletionItem> cs;
         boolean isIncomplete;
         try (var focus = compiler().compileFocus(uri, ctx.line, ctx.character)) {
             // Do a specific type of completion
@@ -310,64 +258,12 @@ class JavaLanguageServer extends LanguageServer {
                     throw new RuntimeException("Unexpected completion context " + ctx.kind);
             }
         }
-        // Convert to CompletionItem
-        var result = new ArrayList<CompletionItem>();
-        for (var c : cs) {
-            var i = new CompletionItem();
-            var id = UUID.randomUUID().toString();
-            i.data = new JsonPrimitive(id);
-            lastCompletions.put(id, c);
-            if (c.element != null) {
-                i.label = c.element.getSimpleName().toString();
-                i.kind = completionItemKind(c.element);
-                // Detailed name will be resolved later, using docs to fill in method names
-                if (!(c.element instanceof ExecutableElement)) {
-                    i.detail = ShortTypePrinter.print(c.element.asType());
-                }
-                // TODO prioritize based on usage?
-                // TODO prioritize based on scope
-                if (isMemberOfObject(c.element)) {
-                    i.sortText = 9 + i.label;
-                } else {
-                    i.sortText = 2 + i.label;
-                }
-            } else if (c.packagePart != null) {
-                i.label = c.packagePart.name;
-                i.kind = CompletionItemKind.Module;
-                i.detail = c.packagePart.fullName;
-                i.sortText = 2 + i.label;
-            } else if (c.keyword != null) {
-                i.label = c.keyword;
-                i.kind = CompletionItemKind.Keyword;
-                i.detail = "keyword";
-                i.sortText = 3 + i.label;
-            } else if (c.className != null) {
-                i.label = StringSearch.lastName(c.className.name);
-                i.kind = CompletionItemKind.Class;
-                i.detail = c.className.name;
-                if (c.className.isImported) {
-                    i.sortText = 2 + i.label;
-                } else {
-                    i.sortText = 4 + i.label;
-                }
-            } else if (c.snippet != null) {
-                i.label = c.snippet.label;
-                i.kind = CompletionItemKind.Snippet;
-                i.insertText = c.snippet.snippet;
-                i.insertTextFormat = InsertTextFormat.Snippet;
-                i.sortText = 1 + i.label;
-            } else {
-                throw new RuntimeException(c + " is not valid");
-            }
-
-            result.add(i);
-        }
         // Log timing
         var elapsedMs = Duration.between(started, Instant.now()).toMillis();
-        if (isIncomplete) LOG.info(String.format("Found %d items (incomplete) in %,d ms", result.size(), elapsedMs));
-        else LOG.info(String.format("...found %d items in %,d ms", result.size(), elapsedMs));
+        if (isIncomplete) LOG.info(String.format("Found %d items (incomplete) in %,d ms", cs.size(), elapsedMs));
+        else LOG.info(String.format("...found %d items in %,d ms", cs.size(), elapsedMs));
 
-        return Optional.of(new CompletionList(isIncomplete, result));
+        return Optional.of(new CompletionList(isIncomplete, cs));
     }
 
     private Optional<MarkupContent> findDocs(Ptr ptr) {
@@ -382,17 +278,15 @@ class JavaLanguageServer extends LanguageServer {
         if (!path.isPresent()) return Optional.empty();
         // Parse the doctree associated with el
         var docTree = parse.doc(path.get());
-        ;
         var string = asMarkupContent(docTree);
         return Optional.of(string);
     }
 
-    private Optional<String> findMethodDetails(ExecutableElement method) {
-        LOG.info(String.format("Find details for method `%s`...", method));
+    private Optional<String> findMethodDetails(Ptr ptr) {
+        LOG.info(String.format("Find details for method `%s`...", ptr));
 
-        // TODO find and parse happens twice between findDocs and findMethodDetails
+        // TODO find and parse happens twice
         // Find method in the doc path
-        var ptr = new Ptr(method);
         var file = compiler().docs().find(ptr);
         if (!file.isPresent()) return Optional.empty();
         // Parse file and find method
@@ -402,7 +296,7 @@ class JavaLanguageServer extends LanguageServer {
         // Should be a MethodTree
         var tree = path.get().getLeaf();
         if (!(tree instanceof MethodTree)) {
-            LOG.warning(String.format("...method `%s` associated with non-method tree `%s`", method, tree));
+            LOG.warning(String.format("...method `%s` associated with non-method tree `%s`", ptr, tree));
             return Optional.empty();
         }
         // Write description of method using info from source
@@ -413,17 +307,6 @@ class JavaLanguageServer extends LanguageServer {
         }
         var details = String.format("%s %s(%s)", methodTree.getReturnType(), methodTree.getName(), args);
         return Optional.of(details);
-    }
-
-    private String defaultDetails(ExecutableElement method) {
-        var args = new StringJoiner(", ");
-        var missingParamNames =
-                method.getParameters().stream().allMatch(p -> p.getSimpleName().toString().matches("arg\\d+"));
-        for (var p : method.getParameters()) {
-            if (missingParamNames) args.add(ShortTypePrinter.print(p.asType()));
-            else args.add(p.getSimpleName().toString());
-        }
-        return String.format("%s %s(%s)", ShortTypePrinter.print(method.getReturnType()), method.getSimpleName(), args);
     }
 
     private String asMarkdown(List<? extends DocTree> lines) {
@@ -449,28 +332,16 @@ class JavaLanguageServer extends LanguageServer {
     @Override
     public CompletionItem resolveCompletionItem(CompletionItem unresolved) {
         if (unresolved.data == null) return unresolved;
-        var idJson = (JsonPrimitive) unresolved.data;
-        var id = idJson.getAsString();
-        var cached = lastCompletions.get(id);
-        if (cached == null) {
-            LOG.warning("CompletionItem " + id + " was not in the cache");
-            return unresolved;
+        var ptr = new Ptr(unresolved.data.getAsString());
+        var markdown = findDocs(ptr);
+        if (markdown.isPresent()) {
+            unresolved.documentation = markdown.get();
         }
-        if (cached.element != null) {
-            if (cached.element instanceof ExecutableElement) {
-                var method = (ExecutableElement) cached.element;
-                unresolved.detail = findMethodDetails(method).orElse(defaultDetails(method));
+        if (ptr.isMethod()) {
+            var details = findMethodDetails(ptr);
+            if (details.isPresent()) {
+                unresolved.detail = details.get();
             }
-            var markdown = findDocs(new Ptr(cached.element));
-            if (markdown.isPresent()) {
-                unresolved.documentation = markdown.get();
-            }
-        } else if (cached.className != null) {
-            var packageName = StringSearch.mostName(cached.className.name);
-            var className = StringSearch.lastName(cached.className.name);
-            var ptr = Ptr.toClass(packageName, className);
-            var markdown = findDocs(ptr);
-            if (markdown.isPresent()) unresolved.documentation = markdown.get();
         }
         return unresolved;
     }

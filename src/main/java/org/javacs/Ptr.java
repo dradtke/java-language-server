@@ -208,6 +208,10 @@ class Ptr {
         return find.found;
     }
 
+    boolean isMethod() {
+        return erasedParameterTypes.isPresent();
+    }
+
     @Override
     public boolean equals(Object other) {
         if (!(other instanceof Ptr)) return false;
