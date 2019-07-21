@@ -634,38 +634,24 @@ class CompileBatch implements AutoCloseable {
     }
 
     /** Find all members of expression ending at line:character */
-    List<Completion> completeMembers(URI uri, int line, int character, boolean isReference) {
+    List<Completion> completeMembers(URI uri, int line, int character) {
         var path = findPath(uri, line, character);
-        var types = borrow.task.getTypes();
-        var scope = trees.getScope(path);
         var element = trees.getElement(path);
 
         if (element instanceof PackageElement) {
-            var result = new ArrayList<Completion>();
-            var p = (PackageElement) element;
+            return completePackageMembers(path);
+        } else if (element instanceof TypeElement) {
+            return completeTypeMembers(path);
+        } else {
+            return completeInstanceMembers(path);
+        }
+    }
 
-            LOG.info(String.format("...completing members of package %s", p.getQualifiedName()));
-
-            // Add class-names resolved as Element by javac
-            for (var member : p.getEnclosedElements()) {
-                // If the package member is a TypeElement, like a class or interface, check if it's accessible
-                if (member instanceof TypeElement) {
-                    if (trees.isAccessible(scope, (TypeElement) member)) {
-                        result.add(Completion.ofElement(member));
-                    }
-                }
-                // Otherwise, just assume it's accessible and add it to the list
-                else result.add(Completion.ofElement(member));
-            }
-            // Add sub-package names resolved as String by guava ClassPath
-            var parent = p.getQualifiedName().toString();
-            var subs = subPackages(parent);
-            for (var sub : subs) {
-                result.add(Completion.ofPackagePart(sub, StringSearch.lastName(sub)));
-            }
-
-            return result;
-        } else if (element instanceof TypeElement && isReference) {
+    List<Completion> completeReferences(URI uri, int line, int character) {
+        var path = findPath(uri, line, character);
+        var scope = trees.getScope(path);
+        var element = trees.getElement(path);
+        if (element instanceof TypeElement) {
             var result = new ArrayList<Completion>();
             var t = (TypeElement) element;
 
@@ -683,76 +669,111 @@ class CompileBatch implements AutoCloseable {
             result.add(Completion.ofKeyword("new"));
 
             return result;
-        } else if (element instanceof TypeElement && !isReference) {
-            var result = new ArrayList<Completion>();
-            var t = (TypeElement) element;
+        } else {
+            return completeInstanceMembers(path);
+        }
+    }
 
-            LOG.info(String.format("...completing static members of %s", t.getQualifiedName()));
+    private List<Completion> completePackageMembers(TreePath path) {
+        var result = new ArrayList<Completion>();
+        var scope = trees.getScope(path);
+        var element = (PackageElement) trees.getElement(path);
 
-            // Add static members
-            for (var member : t.getEnclosedElements()) {
-                // TODO if this is a member reference :: then include non-statics
-                if (member.getModifiers().contains(Modifier.STATIC)
-                        && trees.isAccessible(scope, member, (DeclaredType) t.asType())) {
+        LOG.info(String.format("...completing members of package %s", element.getQualifiedName()));
+
+        // Add class-names resolved as Element by javac
+        for (var member : element.getEnclosedElements()) {
+            // If the package member is a TypeElement, like a class or interface, check if it's accessible
+            if (member instanceof TypeElement) {
+                if (trees.isAccessible(scope, (TypeElement) member)) {
                     result.add(Completion.ofElement(member));
                 }
             }
+            // Otherwise, just assume it's accessible and add it to the list
+            else result.add(Completion.ofElement(member));
+        }
+        // Add sub-package names resolved as String by guava ClassPath
+        var parent = element.getQualifiedName().toString();
+        var subs = subPackages(parent);
+        for (var sub : subs) {
+            result.add(Completion.ofPackagePart(sub, StringSearch.lastName(sub)));
+        }
 
-            // Add .class
-            result.add(Completion.ofKeyword("class"));
-            result.add(Completion.ofKeyword("this"));
-            result.add(Completion.ofKeyword("super"));
+        return result;
+    }
 
-            return result;
-        } else {
-            var type = trees.getTypeMirror(path);
-            if (type == null) {
-                LOG.warning(String.format("`...%s` has not type", path.getLeaf()));
-                return List.of();
+    private List<Completion> completeTypeMembers(TreePath path) {
+        var result = new ArrayList<Completion>();
+        var scope = trees.getScope(path);
+        var element = (TypeElement) trees.getElement(path);
+
+        LOG.info(String.format("...completing static members of %s", element.getQualifiedName()));
+
+        // Add static members
+        for (var member : element.getEnclosedElements()) {
+            // TODO if this is a member reference :: then include non-statics
+            if (member.getModifiers().contains(Modifier.STATIC)
+                    && trees.isAccessible(scope, member, (DeclaredType) element.asType())) {
+                result.add(Completion.ofElement(member));
             }
-            if (!hasMembers(type)) {
-                LOG.warning("...don't know how to complete members of type " + type);
-                return List.of();
+        }
+
+        // Add .class
+        result.add(Completion.ofKeyword("class"));
+        result.add(Completion.ofKeyword("this"));
+        result.add(Completion.ofKeyword("super"));
+
+        return result;
+    }
+
+    private List<Completion> completeInstanceMembers(TreePath path) {
+        var scope = trees.getScope(path);
+        var type = trees.getTypeMirror(path);
+        if (type == null) {
+            LOG.warning(String.format("`...%s` has not type", path.getLeaf()));
+            return List.of();
+        }
+        if (!hasMembers(type)) {
+            LOG.warning("...don't know how to complete members of type " + type);
+            return List.of();
+        }
+        var result = new ArrayList<Completion>();
+        var ts = supersWithSelf(type);
+        var alreadyAdded = new HashSet<String>();
+        LOG.info(String.format("...completing virtual members of %s and %d supers", type, ts.size()));
+        for (var t : ts) {
+            var e = types.asElement(t);
+            if (e == null) {
+                LOG.warning(String.format("...can't convert supertype `%s` to element, skipping", t));
+                continue;
             }
+            for (var member : e.getEnclosedElements()) {
+                // Don't add statics
+                if (member.getModifiers().contains(Modifier.STATIC)) continue;
+                // Don't add constructors
+                if (member.getSimpleName().contentEquals("<init>")) continue;
+                // Skip overridden members from superclass
+                if (alreadyAdded.contains(member.toString())) continue;
 
-            var result = new ArrayList<Completion>();
-            var ts = supersWithSelf(type);
-            var alreadyAdded = new HashSet<String>();
-            LOG.info(String.format("...completing virtual members of %s and %d supers", type, ts.size()));
-            for (var t : ts) {
-                var e = types.asElement(t);
-                if (e == null) {
-                    LOG.warning(String.format("...can't convert supertype `%s` to element, skipping", t));
-                    continue;
-                }
-                for (var member : e.getEnclosedElements()) {
-                    // Don't add statics
-                    if (member.getModifiers().contains(Modifier.STATIC)) continue;
-                    // Don't add constructors
-                    if (member.getSimpleName().contentEquals("<init>")) continue;
-                    // Skip overridden members from superclass
-                    if (alreadyAdded.contains(member.toString())) continue;
-
-                    // If type is a DeclaredType, check accessibility of member
-                    if (type instanceof DeclaredType) {
-                        if (trees.isAccessible(scope, member, (DeclaredType) type)) {
-                            result.add(Completion.ofElement(member));
-                            alreadyAdded.add(member.toString());
-                        }
-                    }
-                    // Otherwise, accessibility rules are very complicated
-                    // Give up and just declare that everything is accessible
-                    else {
+                // If type is a DeclaredType, check accessibility of member
+                if (type instanceof DeclaredType) {
+                    if (trees.isAccessible(scope, member, (DeclaredType) type)) {
                         result.add(Completion.ofElement(member));
                         alreadyAdded.add(member.toString());
                     }
                 }
+                // Otherwise, accessibility rules are very complicated
+                // Give up and just declare that everything is accessible
+                else {
+                    result.add(Completion.ofElement(member));
+                    alreadyAdded.add(member.toString());
+                }
             }
-            if (type instanceof ArrayType) {
-                result.add(Completion.ofKeyword("length"));
-            }
-            return result;
         }
+        if (type instanceof ArrayType) {
+            result.add(Completion.ofKeyword("length"));
+        }
+        return result;
     }
 
     static String[] TOP_LEVEL_KEYWORDS = {

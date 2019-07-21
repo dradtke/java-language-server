@@ -285,11 +285,11 @@ class JavaLanguageServer extends LanguageServer {
             // Do a specific type of completion
             switch (ctx.kind) {
                 case MemberSelect:
-                    cs = focus.completeMembers(uri, ctx.line, ctx.character, false);
+                    cs = focus.completeMembers(uri, ctx.line, ctx.character);
                     isIncomplete = false;
                     break;
                 case MemberReference:
-                    cs = focus.completeMembers(uri, ctx.line, ctx.character, true);
+                    cs = focus.completeReferences(uri, ctx.line, ctx.character);
                     isIncomplete = false;
                     break;
                 case Identifier:
