@@ -125,16 +125,28 @@ class JavaCompilerService {
             if (!warmPackages.contains(pkg)) {
                 LOG.info("...first time compiling sources in package " + pkg);
                 var filesInPackage = FileStore.list(pkg);
-                needsCompile.addAll(filesInPackage);
+                for (var f : filesInPackage) {
+                    if (containsPackagePrivateClass(f)) {
+                        needsCompile.add(f);
+                    }
+                }
                 warmPackages.add(pkg);
             }
         }
         if (!needsCompile.isEmpty()) {
-            LOG.info("...compile " + needsCompile.size() + " files in new packages");
+            LOG.info(
+                    "...compile "
+                            + needsCompile.size()
+                            + " files that contain package-private classes in new packages");
             // TODO consider pruning each source to speed up compile times
             var batch = compilePaths(needsCompile);
             batch.close();
         }
+    }
+
+    private boolean containsPackagePrivateClass(Path file) {
+        var parse = Parser.parseFile(file.toUri());
+        return parse.containsPackagePrivateClass();
     }
 
     List<SymbolInformation> findSymbols(String query, int limit) {

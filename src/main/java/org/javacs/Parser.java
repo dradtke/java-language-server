@@ -185,6 +185,18 @@ class Parser {
         return found;
     }
 
+    boolean containsPackagePrivateClass() {
+        for (var t : root.getTypeDecls()) {
+            if (t instanceof ClassTree) {
+                var c = (ClassTree) t;
+                if (!c.getModifiers().getFlags().contains(Modifier.PUBLIC)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     Optional<Range> range(TreePath path) {
         return range(task, contents, path);
     }

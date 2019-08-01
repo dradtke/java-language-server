@@ -12,6 +12,8 @@
 ## Bugs 
 - Deleting file doesn't clear it from javac
 - External delete causes find-references to crash because it's still in FileStore.javaSources()
+- `return json.get("name").` doesn't auto-complete
+- `package |` should auto-complete based on package of other files in same folder, even if folder path doesn't match package path.
 
 ## Polish
 - Error squigglies should be on method name, not entire method
