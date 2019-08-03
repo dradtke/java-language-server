@@ -38,16 +38,6 @@ public class BenchmarkPruner {
             var classPath = new InferConfig(workspaceRoot).classPath();
             return new JavaCompilerService(classPath, Collections.emptySet(), Collections.emptySet());
         }
-
-        @Setup
-        public void setup() {
-            Profiler.quiet = true;
-        }
-
-        @TearDown
-        public void teardown() {
-            Profiler.quiet = false;
-        }
     }
 
     @Benchmark

@@ -40,9 +40,6 @@ class CompileBatch implements AutoCloseable {
         this.elements = borrow.task.getElements();
         this.types = borrow.task.getTypes();
         this.roots = new ArrayList<CompilationUnitTree>();
-        // Print timing information for optimization
-        var profiler = new Profiler();
-        borrow.task.addTaskListener(profiler);
         // Compile all roots
         try {
             for (var t : borrow.task.parse()) roots.add(t);
@@ -52,7 +49,6 @@ class CompileBatch implements AutoCloseable {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-        profiler.print();
     }
 
     @Override

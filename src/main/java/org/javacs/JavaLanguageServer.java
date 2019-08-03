@@ -33,7 +33,7 @@ class JavaLanguageServer extends LanguageServer {
 
     void lint(Collection<URI> uris) {
         // TODO only lint the current focus, merging errors/decorations with existing
-        LOG.info("Lint " + Profiler.describe(uris) + "...");
+        LOG.info("Lint " + uris.size() + " files...");
         var started = Instant.now();
         if (uris.isEmpty()) return;
         try (var batch = compiler().compileUris(uris)) {
