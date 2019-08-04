@@ -138,8 +138,7 @@ export function colorJava(root: Parser.SyntaxNode, visibleRanges: {start: number
 						colors['entity.name.type'].push(x);
 						break;
 					case 'constructor_declarator':
-					case 'method_declarator':
-					case 'class_declaration':
+					case 'method_declaration':
 						colors['entity.name.function'].push(x);
 						break;
 					default:
