@@ -1,1 +1,0 @@
-Make sure module dir gets checked into git

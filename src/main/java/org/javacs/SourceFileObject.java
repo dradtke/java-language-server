@@ -14,7 +14,7 @@ class SourceFileObject implements JavaFileObject {
     final Path path;
     /** contents is the text in this file, or null if we should use the text in FileStore */
     final String contents;
-
+    /** if contents is set, the modified time of contents */
     final Instant modified;
 
     SourceFileObject(URI uri) {

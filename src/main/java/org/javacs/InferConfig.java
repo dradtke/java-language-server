@@ -18,7 +18,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 class InferConfig {
     private static final Logger LOG = Logger.getLogger("main");
@@ -77,54 +76,10 @@ class InferConfig {
 
         // Bazel
         if (Files.exists(workspaceRoot.resolve("WORKSPACE"))) {
-            var result = new HashSet<Path>();
-            var bazelGenFiles = workspaceRoot.resolve("bazel-genfiles");
-
-            if (Files.exists(bazelGenFiles) && Files.isSymbolicLink(bazelGenFiles)) {
-                LOG.info("Looking for bazel generated files in " + bazelGenFiles);
-                var jars = bazelJars(bazelGenFiles);
-                LOG.info(String.format("Found %d generated-files directories", jars.size()));
-                result.addAll(jars);
-            }
-            return result;
+            return bazelClassPath();
         }
 
         return Collections.emptySet();
-    }
-
-    private void findBazelJavac(File bazelRoot, File workspaceRoot, Set<Path> acc) {
-        // If _javac directory exists, search it for dirs with names like lib*_classes
-        var javac = new File(bazelRoot, "_javac");
-        if (javac.exists()) {
-            var match = FileSystems.getDefault().getPathMatcher("glob:**/lib*_classes");
-            try {
-                Files.walk(javac.toPath()).filter(match::matches).filter(Files::isDirectory).forEach(acc::add);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        }
-        // Recurse into all directories that mirror the structure of the workspace
-        if (bazelRoot.isDirectory()) {
-            var children = bazelRoot.list((__, name) -> new File(workspaceRoot, name).exists());
-            for (var child : children) {
-                var bazelChild = new File(bazelRoot, child);
-                var workspaceChild = new File(workspaceRoot, child);
-                findBazelJavac(bazelChild, workspaceChild, acc);
-            }
-        }
-    }
-
-    /** Search bazel-genfiles for jars */
-    private Set<Path> bazelJars(Path bazelGenFiles) {
-        try {
-            var target = Files.readSymbolicLink(bazelGenFiles);
-
-            return Files.walk(target)
-                    .filter(file -> file.getFileName().toString().endsWith(".jar"))
-                    .collect(Collectors.toSet());
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
     }
 
     /** Find source .jar files in local maven repository. */
@@ -261,7 +216,7 @@ class InferConfig {
         }
     }
 
-    private static Pattern DEPENDENCY = Pattern.compile("^\\[INFO\\]\\s+(.*:.*:.*:.*:.*):(/.*)$");
+    private static final Pattern DEPENDENCY = Pattern.compile("^\\[INFO\\]\\s+(.*:.*:.*:.*:.*):(/.*)$");
 
     static Optional<Path> readDependency(String line) {
         var match = DEPENDENCY.matcher(line);
@@ -291,5 +246,58 @@ class InferConfig {
             }
         }
         return null;
+    }
+
+    // Example:
+    // /private/var/tmp/_bazel_georgefraser/33b8fb8944a241143eca3ae505600d73/external/com_fasterxml_jackson_datatype_jackson_datatype_jdk8/jar/BUILD:6:12: source file @com_fasterxml_jackson_datatype_jackson_datatype_jdk8//jar:jackson-datatype-jdk8-2.9.8.jar
+    private static final Pattern LOCATION = Pattern.compile("(.*):\\d+:\\d+: source file @(.*)//jar:(.*\\.jar)");
+    private static final Path NOT_FOUND = Paths.get("");
+
+    private Set<Path> bazelClassPath() {
+        try {
+            // Run bazel as a subprocess
+            String[] command = {"bazel", "query", "labels(jars, deps(...))", "--output", "location"};
+            var output = Files.createTempFile("java-language-server-bazel-output", ".txt");
+            var process =
+                    new ProcessBuilder()
+                            .command(command)
+                            .directory(workspaceRoot.toFile())
+                            .redirectError(ProcessBuilder.Redirect.INHERIT)
+                            .redirectOutput(output.toFile())
+                            .start();
+            // Wait for process to exit
+            var result = process.waitFor();
+            if (result != 0) {
+                LOG.severe("`" + String.join(" ", command) + "` returned " + result);
+                return Set.of();
+            }
+            // Read output
+            var dependencies = new HashSet<Path>();
+            for (var line : Files.readAllLines(output)) {
+                var jar = findBazelJar(line);
+                if (jar != NOT_FOUND) {
+                    dependencies.add(jar);
+                }
+            }
+            return dependencies;
+        } catch (InterruptedException | IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private Path findBazelJar(String line) {
+        var matcher = LOCATION.matcher(line);
+        if (!matcher.matches()) {
+            LOG.warning(line + " does not look like a jar dependency");
+            return NOT_FOUND;
+        }
+        var build = matcher.group(1);
+        var jar = matcher.group(3);
+        var path = Paths.get(build).getParent().resolve(jar);
+        if (!Files.exists(path)) {
+            LOG.warning(path + " does not exist");
+            return NOT_FOUND;
+        }
+        return path;
     }
 }
