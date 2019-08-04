@@ -713,13 +713,24 @@ class CompileBatch implements AutoCloseable {
     List<CompletionItem> completeMembers(URI uri, int line, int character) {
         var path = findPath(uri, line, character);
         var element = trees.getElement(path);
+        var type = trees.getTypeMirror(path);
 
         if (element instanceof PackageElement) {
             return completePackageMembers(path);
         } else if (element instanceof TypeElement) {
-            return completeTypeMembers(path);
+            var members = completeTypeMembers(path);
+            var result = groupByOverload(members, true);
+            result.add(keywordCompletion("class"));
+            result.add(keywordCompletion("this"));
+            result.add(keywordCompletion("super"));
+            return result;
         } else {
-            return completeInstanceMembers(path);
+            var members = completeInstanceMembers(path);
+            var result = groupByOverload(members, true);
+            if (type instanceof ArrayType) {
+                result.add(keywordCompletion("length"));
+            }
+            return result;
         }
     }
 
@@ -728,25 +739,26 @@ class CompileBatch implements AutoCloseable {
         var scope = trees.getScope(path);
         var element = trees.getElement(path);
         if (element instanceof TypeElement) {
-            var result = new ArrayList<CompletionItem>();
             var t = (TypeElement) element;
-
             LOG.info(String.format("...completing static methods of %s", t.getQualifiedName()));
-
             // Add members
+            var methods = new ArrayList<Element>();
             for (var member : t.getEnclosedElements()) {
                 if (member.getKind() == ElementKind.METHOD
                         && trees.isAccessible(scope, member, (DeclaredType) t.asType())) {
-                    result.add(elementCompletion(member));
+                    methods.add(member);
                 }
             }
-
+            // Form result
+            var result = groupByOverload(methods, false);
             // Add ::new
             result.add(keywordCompletion("new"));
 
             return result;
         } else {
-            return completeInstanceMembers(path);
+            var members = completeInstanceMembers(path);
+            var result = groupByOverload(members, false);
+            return result;
         }
     }
 
@@ -778,8 +790,8 @@ class CompileBatch implements AutoCloseable {
         return result;
     }
 
-    private List<CompletionItem> completeTypeMembers(TreePath path) {
-        var result = new ArrayList<CompletionItem>();
+    private List<Element> completeTypeMembers(TreePath path) {
+        var result = new ArrayList<Element>();
         var scope = trees.getScope(path);
         var element = (TypeElement) trees.getElement(path);
 
@@ -787,33 +799,27 @@ class CompileBatch implements AutoCloseable {
 
         // Add static members
         for (var member : element.getEnclosedElements()) {
-            // TODO if this is a member reference :: then include non-statics
             if (member.getModifiers().contains(Modifier.STATIC)
                     && trees.isAccessible(scope, member, (DeclaredType) element.asType())) {
-                result.add(elementCompletion(member));
+                result.add(member);
             }
         }
-
-        // Add .class
-        result.add(keywordCompletion("class"));
-        result.add(keywordCompletion("this"));
-        result.add(keywordCompletion("super"));
 
         return result;
     }
 
-    private List<CompletionItem> completeInstanceMembers(TreePath path) {
+    private List<Element> completeInstanceMembers(TreePath path) {
         var scope = trees.getScope(path);
         var type = trees.getTypeMirror(path);
         if (type == null) {
-            LOG.warning(String.format("`...%s` has not type", path.getLeaf()));
+            LOG.warning(String.format("`...%s` has no type", path.getLeaf()));
             return List.of();
         }
         if (!hasMembers(type)) {
             LOG.warning("...don't know how to complete members of type " + type);
             return List.of();
         }
-        var result = new ArrayList<CompletionItem>();
+        var result = new ArrayList<Element>();
         var ts = supersWithSelf(type);
         var alreadyAdded = new HashSet<String>();
         LOG.info(String.format("...completing virtual members of %s and %d supers", type, ts.size()));
@@ -834,20 +840,42 @@ class CompileBatch implements AutoCloseable {
                 // If type is a DeclaredType, check accessibility of member
                 if (type instanceof DeclaredType) {
                     if (trees.isAccessible(scope, member, (DeclaredType) type)) {
-                        result.add(elementCompletion(member));
+                        result.add(member);
                         alreadyAdded.add(member.toString());
                     }
                 }
                 // Otherwise, accessibility rules are very complicated
                 // Give up and just declare that everything is accessible
                 else {
-                    result.add(elementCompletion(member));
+                    result.add(member);
                     alreadyAdded.add(member.toString());
                 }
             }
         }
-        if (type instanceof ArrayType) {
-            result.add(keywordCompletion("length"));
+        return result;
+    }
+
+    private List<CompletionItem> groupByOverload(List<Element> members, boolean isInvocation) {
+        var result = new ArrayList<CompletionItem>();
+        var methods = new HashMap<Name, List<ExecutableElement>>();
+        for (var member : members) {
+            if (member instanceof ExecutableElement) {
+                var method = (ExecutableElement) member;
+                var name = method.getSimpleName();
+                if (!methods.containsKey(name)) {
+                    methods.put(name, new ArrayList<ExecutableElement>());
+                }
+                methods.get(name).add(method);
+            } else {
+                result.add(elementCompletion(member));
+            }
+        }
+        for (var overload : methods.values()) {
+            var i = overloadCompletion(overload);
+            if (isInvocation) {
+                completeInvocation(overload, i);
+            }
+            result.add(i);
         }
         return result;
     }
@@ -1152,16 +1180,12 @@ class CompileBatch implements AutoCloseable {
         var root = root(uri);
         // Add locals
         var locals = scopeMembers(uri, line, character, partialName);
-        for (var m : locals) {
-            result.add(elementCompletion(m));
-        }
+        result.addAll(groupByOverload(locals, true));
         LOG.info(String.format("...found %d locals", locals.size()));
 
         // Add static imports
         var staticImports = staticImports(uri, partialName);
-        for (var m : staticImports) {
-            result.add(elementCompletion(m));
-        }
+        result.addAll(groupByOverload(staticImports, true));
         LOG.info(String.format("...found %d static imports", staticImports.size()));
 
         // Add classes
@@ -1364,12 +1388,7 @@ class CompileBatch implements AutoCloseable {
         var i = new CompletionItem();
         i.label = e.getSimpleName().toString();
         i.kind = completionItemKind(e);
-        if (e instanceof ExecutableElement) {
-            var method = (ExecutableElement) e;
-            i.detail = defaultDetails(method);
-        } else {
-            i.detail = ShortTypePrinter.print(e.asType());
-        }
+        i.detail = ShortTypePrinter.print(e.asType());
         // TODO prioritize based on usage?
         // TODO prioritize based on scope
         if (isMemberOfObject(e)) {
@@ -1383,16 +1402,44 @@ class CompileBatch implements AutoCloseable {
         return i;
     }
 
-    // Detailed name will be resolved later, using docs to fill in method names
-    private String defaultDetails(ExecutableElement method) {
-        var args = new StringJoiner(", ");
-        var missingParamNames =
-                method.getParameters().stream().allMatch(p -> p.getSimpleName().toString().matches("arg\\d+"));
-        for (var p : method.getParameters()) {
-            if (missingParamNames) args.add(ShortTypePrinter.print(p.asType()));
-            else args.add(p.getSimpleName().toString());
+    private CompletionItem overloadCompletion(List<ExecutableElement> methods) {
+        var first = methods.get(0);
+        var i = elementCompletion(first);
+        i.label = methodLabel(first);
+        i.insertText = first.getSimpleName().toString();
+        i.filterText = first.getSimpleName().toString();
+        // Add (+n overloads)
+        if (methods.size() > 1) {
+            var overloads = methods.size() - 1;
+            i.label += " (+" + overloads + " overloads)";
         }
-        return String.format("%s %s(%s)", ShortTypePrinter.print(method.getReturnType()), method.getSimpleName(), args);
+        // Save pointer for method and class doc resultion
+        var ptr = new Ptr(first);
+        i.data = new JsonPrimitive(ptr.toString());
+        return i;
+    }
+
+    private void completeInvocation(List<ExecutableElement> methods, CompletionItem i) {
+        var first = methods.get(0);
+        i.insertText = first.getSimpleName() + "($0)";
+        i.insertTextFormat = 2; // Snippet
+        i.command = new Command();
+        i.command.command = "editor.action.triggerParameterHints";
+        if (methods.size() == 1 && first.getParameters().isEmpty()) {
+            if (first.getReturnType().getKind() == TypeKind.VOID) {
+                i.insertText = first.getSimpleName() + "();$0";
+            } else {
+                i.insertText = first.getSimpleName() + "()$0";
+            }
+        }
+    }
+
+    private String methodLabel(ExecutableElement method) {
+        var args = new StringJoiner(", ");
+        for (var p : method.getParameters()) {
+            args.add(ShortTypePrinter.print(p.asType()));
+        }
+        return method.getSimpleName() + "(" + args + ")";
     }
 
     private Integer completionItemKind(Element e) {

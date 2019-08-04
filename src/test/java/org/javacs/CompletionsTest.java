@@ -21,7 +21,7 @@ public class CompletionsTest extends CompletionsBase {
         var file = "/org/javacs/example/AutocompleteStaticMember.java";
 
         // Static methods
-        var suggestions = insertText(file, 5, 38);
+        var suggestions = filterText(file, 5, 38);
 
         assertThat(suggestions, hasItems("testFieldStatic", "testMethodStatic", "class"));
         assertThat(suggestions, not(hasItems("testField", "testMethod", "getClass")));
@@ -32,7 +32,7 @@ public class CompletionsTest extends CompletionsBase {
         var file = "/org/javacs/example/AutocompleteStaticReference.java";
 
         // Static methods
-        var suggestions = insertText(file, 7, 48);
+        var suggestions = filterText(file, 7, 48);
 
         assertThat(suggestions, hasItems("testMethod", "testMethodStatic", "new"));
         assertThat(suggestions, not(hasItems("class")));
@@ -43,7 +43,7 @@ public class CompletionsTest extends CompletionsBase {
         var file = "/org/javacs/example/AutocompleteMember.java";
 
         // Virtual testMethods
-        var suggestions = insertText(file, 5, 14);
+        var suggestions = filterText(file, 5, 14);
 
         assertThat(
                 "excludes static members",
@@ -65,7 +65,7 @@ public class CompletionsTest extends CompletionsBase {
 
     @Test
     public void enumMapMembers() {
-        var suggestions = insertTemplate("/org/javacs/example/CompleteEnumMap.java", 9, 13);
+        var suggestions = filterText("/org/javacs/example/CompleteEnumMap.java", 9, 13);
         assertThat(
                 suggestions,
                 hasItems(
@@ -90,7 +90,7 @@ public class CompletionsTest extends CompletionsBase {
         var file = "/org/javacs/example/AutocompleteMembers.java";
 
         // f
-        var suggestions = insertText(file, 8, 10);
+        var suggestions = filterText(file, 8, 10);
 
         assertThat(suggestions, hasItems("testFields", "testFieldStatic", "testMethods", "testMethodStatic"));
     }
@@ -100,7 +100,7 @@ public class CompletionsTest extends CompletionsBase {
         var file = "/org/javacs/example/AutocompleteMembers.java";
 
         // this.f
-        var suggestions = insertText(file, 9, 15);
+        var suggestions = filterText(file, 9, 15);
 
         assertThat(suggestions, hasItems("testFields", "testMethods"));
         assertThat(suggestions, not(hasItems("testFieldStatic", "testMethodStatic")));
@@ -111,7 +111,7 @@ public class CompletionsTest extends CompletionsBase {
         var file = "/org/javacs/example/AutocompleteMembers.java";
 
         // AutocompleteMembers.f
-        var suggestions = insertText(file, 10, 30);
+        var suggestions = filterText(file, 10, 30);
 
         assertThat(suggestions, hasItems("testFieldStatic", "testMethodStatic"));
         assertThat(suggestions, not(hasItems("testFields", "testMethods")));
@@ -122,7 +122,7 @@ public class CompletionsTest extends CompletionsBase {
         var file = "/org/javacs/example/AutocompleteMembers.java";
 
         // f
-        var suggestions = insertText(file, 22, 10);
+        var suggestions = filterText(file, 22, 10);
 
         assertThat(
                 suggestions,
@@ -134,7 +134,7 @@ public class CompletionsTest extends CompletionsBase {
         var file = "/org/javacs/example/AutocompleteMembers.java";
 
         // this.f
-        var suggestions = insertText(file, 23, 15);
+        var suggestions = filterText(file, 23, 15);
 
         assertThat(suggestions, hasItems("testFields", "testMethods"));
         assertThat(suggestions, not(hasItems("testFieldStatic", "testMethodStatic", "testArguments")));
@@ -145,7 +145,7 @@ public class CompletionsTest extends CompletionsBase {
         var file = "/org/javacs/example/AutocompleteMembers.java";
 
         // AutocompleteMembers.f
-        var suggestions = insertText(file, 24, 30);
+        var suggestions = filterText(file, 24, 30);
 
         assertThat(suggestions, hasItems("testFieldStatic", "testMethodStatic"));
         assertThat(suggestions, not(hasItems("testFields", "testMethods", "testArguments")));
@@ -156,7 +156,7 @@ public class CompletionsTest extends CompletionsBase {
         var file = "/org/javacs/example/AutocompleteMembers.java";
 
         // this::m
-        var suggestions = insertText(file, 25, 59);
+        var suggestions = filterText(file, 25, 59);
 
         assertThat(suggestions, hasItems("testMethods"));
         assertThat(suggestions, not(hasItems("testFields", "testFieldStatic", "testMethodStatic")));
@@ -167,7 +167,7 @@ public class CompletionsTest extends CompletionsBase {
         var file = "/org/javacs/example/AutocompleteMembers.java";
 
         // AutocompleteMembers::m
-        var suggestions = insertText(file, 26, 74);
+        var suggestions = filterText(file, 26, 74);
 
         assertThat(suggestions, hasItems("testMethodStatic", "testMethods"));
         assertThat(suggestions, not(hasItems("testFields", "testFieldStatic")));
@@ -179,7 +179,7 @@ public class CompletionsTest extends CompletionsBase {
         var file = "/org/javacs/example/AutocompleteMembers.java";
 
         // f
-        var suggestions = insertText(file, 16, 10);
+        var suggestions = filterText(file, 16, 10);
 
         assertThat(suggestions, hasItems("testFieldStatic", "testMethodStatic"));
         assertThat(suggestions, not(hasItems("testFields", "testMethods")));
@@ -190,7 +190,7 @@ public class CompletionsTest extends CompletionsBase {
         var file = "/org/javacs/example/AutocompleteMembers.java";
 
         // AutocompleteMembers.f
-        var suggestions = insertText(file, 17, 30);
+        var suggestions = filterText(file, 17, 30);
 
         assertThat(suggestions, hasItems("testFieldStatic", "testMethodStatic"));
         assertThat(suggestions, not(hasItems("testFields", "testMethods")));
@@ -201,7 +201,7 @@ public class CompletionsTest extends CompletionsBase {
         var file = "/org/javacs/example/AutocompleteMembers.java";
 
         // AutocompleteMembers::m
-        var suggestions = insertText(file, 17, 30);
+        var suggestions = filterText(file, 17, 30);
 
         assertThat(suggestions, hasItems("testMethodStatic"));
         assertThat(suggestions, not(hasItems("testFields", "testFieldStatic", "testMethods")));
@@ -212,7 +212,7 @@ public class CompletionsTest extends CompletionsBase {
         var file = "/org/javacs/example/AutocompleteMembers.java";
 
         // f
-        var suggestions = insertText(file, 30, 10);
+        var suggestions = filterText(file, 30, 10);
 
         assertThat(suggestions, hasItems("testFieldStatic", "testMethodStatic", "testArguments"));
         assertThat(suggestions, not(hasItems("testFields", "testMethods")));
@@ -223,7 +223,7 @@ public class CompletionsTest extends CompletionsBase {
         var file = "/org/javacs/example/AutocompleteMembers.java";
 
         // AutocompleteMembers.f
-        var suggestions = insertText(file, 31, 30);
+        var suggestions = filterText(file, 31, 30);
 
         assertThat(suggestions, hasItems("testFieldStatic", "testMethodStatic"));
         assertThat(suggestions, not(hasItems("testFields", "testMethods", "testArguments")));
@@ -235,7 +235,7 @@ public class CompletionsTest extends CompletionsBase {
 
         // TODO
         // AutocompleteMembers::m
-        var suggestions = insertText(file, 17, 30);
+        var suggestions = filterText(file, 17, 30);
 
         assertThat(suggestions, hasItems("testMethodStatic"));
         assertThat(suggestions, not(hasItems("testFields", "testFieldStatic", "testMethods")));
@@ -251,7 +251,7 @@ public class CompletionsTest extends CompletionsBase {
         var file = "/org/javacs/example/AutocompleteOther.java";
 
         // new AutocompleteMember().
-        var suggestions = insertText(file, 5, 34);
+        var suggestions = filterText(file, 5, 34);
 
         assertThat(suggestions, not(hasItems("testFieldStatic", "testMethodStatic", "class")));
         assertThat(suggestions, not(hasItems("testFieldStaticPrivate", "testMethodStaticPrivate")));
@@ -264,7 +264,7 @@ public class CompletionsTest extends CompletionsBase {
         var file = "/org/javacs/example/AutocompleteOther.java";
 
         // AutocompleteMember.
-        var suggestions = insertText(file, 7, 28);
+        var suggestions = filterText(file, 7, 28);
 
         assertThat(suggestions, hasItems("testFieldStatic", "testMethodStatic", "class"));
         assertThat(suggestions, not(hasItems("testFieldStaticPrivate", "testMethodStaticPrivate")));
@@ -277,7 +277,7 @@ public class CompletionsTest extends CompletionsBase {
         var file = "/org/javacs/example/AutocompleteOther.java";
 
         // AutocompleteMember.class.
-        var suggestions = insertText(file, 8, 33);
+        var suggestions = filterText(file, 8, 33);
 
         assertThat(suggestions, hasItems("getName", "getClass"));
         assertThat(suggestions, not(hasItems("testFieldStatic", "testMethodStatic", "class")));
@@ -291,7 +291,7 @@ public class CompletionsTest extends CompletionsBase {
         var file = "/org/javacs/example/AutocompleteOther.java";
 
         // Auto?
-        var suggestions = insertText(file, 6, 13);
+        var suggestions = filterText(file, 6, 13);
 
         assertThat(suggestions, hasItems("AutocompleteOther", "AutocompleteMember"));
     }
@@ -301,7 +301,7 @@ public class CompletionsTest extends CompletionsBase {
         var file = "/org/javacs/example/AutocompleteArray.java";
 
         // a.?
-        var suggestions = insertText(file, 7, 11);
+        var suggestions = filterText(file, 7, 11);
 
         assertThat(suggestions, hasItems("length"));
     }
@@ -311,7 +311,7 @@ public class CompletionsTest extends CompletionsBase {
         var file = "/org/javacs/example/CompleteIndirectSuper.java";
 
         // a.?
-        var suggestions = insertText(file, 5, 14);
+        var suggestions = filterText(file, 5, 14);
 
         assertThat(suggestions, hasItems("selfMethod", "super1Method", "super2Method"));
     }
@@ -436,8 +436,7 @@ public class CompletionsTest extends CompletionsBase {
         var file = "/org/javacs/example/AutocompleteFromClasspath.java";
 
         // Static methods
-        var items = items(file, 8, 17);
-        var suggestions = items.stream().map(i -> i.label).collect(Collectors.toSet());
+        var suggestions = filterText(file, 8, 17);
 
         assertThat(suggestions, hasItems("add", "addAll"));
     }
@@ -447,7 +446,7 @@ public class CompletionsTest extends CompletionsBase {
         var file = "/org/javacs/example/AutocompleteBetweenLines.java";
 
         // Static methods
-        var suggestions = insertText(file, 9, 18);
+        var suggestions = filterText(file, 9, 18);
 
         assertThat(suggestions, hasItems("add"));
     }
@@ -481,17 +480,17 @@ public class CompletionsTest extends CompletionsBase {
         var file = "/org/javacs/example/AutocompleteClasses.java";
 
         // Fix?
-        var suggestions = insertText(file, 5, 12);
+        var suggestions = filterText(file, 5, 12);
 
         assertThat(suggestions, hasItems("FixParseErrorAfter"));
 
         // Some?
-        suggestions = insertText(file, 6, 13);
+        suggestions = filterText(file, 6, 13);
 
         assertThat(suggestions, hasItems("SomeInnerClass"));
 
         // List?
-        suggestions = insertText(file, 7, 12);
+        suggestions = filterText(file, 7, 12);
 
         assertThat(suggestions, hasItems("List"));
     }
@@ -501,7 +500,7 @@ public class CompletionsTest extends CompletionsBase {
         var file = "/org/javacs/example/AutocompleteEditMethodName.java";
 
         // Static methods
-        var suggestions = insertText(file, 5, 21);
+        var suggestions = filterText(file, 5, 21);
 
         assertThat(suggestions, hasItems("getClass"));
     }
@@ -525,7 +524,7 @@ public class CompletionsTest extends CompletionsBase {
         var file = "/org/javacs/example/AutocompleteConstructor.java";
 
         // Static methods
-        var suggestions = insertText(file, 5, 25);
+        var suggestions = filterText(file, 5, 25);
 
         assertThat(suggestions, hasItem(startsWith("AutocompleteConstructor")));
         assertThat(suggestions, hasItem(startsWith("AutocompleteMember")));
@@ -552,7 +551,7 @@ public class CompletionsTest extends CompletionsBase {
     @Test
     public void importFromSource() {
         var file = "/org/javacs/example/AutocompletePackage.java";
-        var suggestions = insertText(file, 3, 12);
+        var suggestions = filterText(file, 3, 12);
 
         assertThat("Does not have own package class", suggestions, hasItems("javacs"));
     }
@@ -560,7 +559,7 @@ public class CompletionsTest extends CompletionsBase {
     @Test
     public void importFromClasspath() {
         var file = "/org/javacs/example/AutocompletePackage.java";
-        var suggestions = insertText(file, 5, 13);
+        var suggestions = filterText(file, 5, 13);
 
         assertThat("Has class from classpath", suggestions, hasItems("util"));
     }
@@ -572,7 +571,7 @@ public class CompletionsTest extends CompletionsBase {
         var file = "/org/javacs/example/AutocompletePackage.java";
 
         // import ?
-        var suggestions = insertText(file, 7, 9);
+        var suggestions = filterText(file, 7, 9);
 
         assertThat("Has class from classpath", suggestions, hasItems("com", "org"));
     }
@@ -582,7 +581,7 @@ public class CompletionsTest extends CompletionsBase {
         var file = "/org/javacs/example/AutocompletePackage.java";
 
         // Static methods
-        var suggestions = insertText(file, 6, 12);
+        var suggestions = filterText(file, 6, 12);
 
         assertThat("Has deeply nested class", suggestions, not(hasItems("google.common.collect.Lists")));
     }
@@ -630,7 +629,7 @@ public class CompletionsTest extends CompletionsBase {
         var file = "/org/javacs/example/AutocompleteOuter.java";
 
         // Initializer of static inner class
-        var suggestions = insertText(file, 12, 14);
+        var suggestions = filterText(file, 12, 14);
 
         assertThat(suggestions, hasItems("testMethodStatic", "testFieldStatic"));
         // TODO this is not visible
@@ -642,7 +641,7 @@ public class CompletionsTest extends CompletionsBase {
         var file = "/org/javacs/example/AutocompleteOuter.java";
 
         // Initializer of inner class
-        var suggestions = insertText(file, 18, 14);
+        var suggestions = filterText(file, 18, 14);
 
         assertThat(suggestions, hasItems("testMethodStatic", "testFieldStatic"));
         assertThat(suggestions, hasItems("testMethods", "testFields"));
@@ -653,7 +652,7 @@ public class CompletionsTest extends CompletionsBase {
         var file = "/org/javacs/example/AutocompleteInners.java";
 
         // AutocompleteInners.I
-        var suggestions = insertText(file, 5, 29);
+        var suggestions = filterText(file, 5, 29);
 
         assertThat("suggests qualified inner class declaration", suggestions, hasItem("InnerClass"));
         assertThat("suggests qualified inner enum declaration", suggestions, hasItem("InnerEnum"));
@@ -664,7 +663,7 @@ public class CompletionsTest extends CompletionsBase {
         var file = "/org/javacs/example/AutocompleteInners.java";
 
         // I
-        var suggestions = insertText(file, 6, 10);
+        var suggestions = filterText(file, 6, 10);
 
         assertThat("suggests unqualified inner class declaration", suggestions, hasItem("InnerClass"));
         assertThat("suggests unqualified inner enum declaration", suggestions, hasItem("InnerEnum"));
@@ -675,7 +674,7 @@ public class CompletionsTest extends CompletionsBase {
         var file = "/org/javacs/example/AutocompleteInners.java";
 
         // new AutocompleteInners.I
-        var suggestions = insertText(file, 10, 33);
+        var suggestions = filterText(file, 10, 33);
 
         assertThat("suggests qualified inner class declaration", suggestions, hasItem("InnerClass"));
         // TODO you can't actually make an inner enum
@@ -687,7 +686,7 @@ public class CompletionsTest extends CompletionsBase {
         var file = "/org/javacs/example/AutocompleteInners.java";
 
         // new Inner?
-        var suggestions = insertText(file, 11, 18);
+        var suggestions = filterText(file, 11, 18);
 
         assertThat("suggests unqualified inner class declaration", suggestions, hasItem("InnerClass"));
         // TODO you can't actually make an inner enum
@@ -697,7 +696,7 @@ public class CompletionsTest extends CompletionsBase {
     @Test
     public void innerEnum() {
         var file = "/org/javacs/example/AutocompleteInners.java";
-        var suggestions = insertText(file, 15, 40);
+        var suggestions = filterText(file, 15, 40);
 
         assertThat("suggests enum constants", suggestions, hasItems("Foo"));
     }
@@ -705,7 +704,7 @@ public class CompletionsTest extends CompletionsBase {
     @Test
     public void enumConstantFromSourcePath() {
         var file = "/org/javacs/example/AutocompleteCase.java";
-        var suggestions = insertText(file, 6, 18);
+        var suggestions = filterText(file, 6, 18);
 
         assertThat("suggests enum options", suggestions, containsInAnyOrder("Foo", "Bar"));
     }
@@ -713,7 +712,7 @@ public class CompletionsTest extends CompletionsBase {
     @Test
     public void enumConstantFromSourcePathPartial() {
         var file = "/org/javacs/example/AutocompleteCasePartial.java";
-        var suggestions = insertText(file, 6, 19);
+        var suggestions = filterText(file, 6, 19);
 
         assertThat("suggests enum options", suggestions, hasItem("Foo"));
     }
@@ -721,7 +720,7 @@ public class CompletionsTest extends CompletionsBase {
     @Test
     public void enumConstantFromClassPath() {
         var file = "/org/javacs/example/AutocompleteCaseFromClasspath.java";
-        var suggestions = insertText(file, 8, 18);
+        var suggestions = filterText(file, 8, 18);
 
         assertThat("suggests enum options", suggestions, containsInAnyOrder("FULL", "LONG", "MEDIUM", "SHORT"));
     }
@@ -729,7 +728,7 @@ public class CompletionsTest extends CompletionsBase {
     @Test
     public void enumConstantFromClassPathPartial() {
         var file = "/org/javacs/example/AutocompleteCaseFromClasspathPartial.java";
-        var suggestions = insertText(file, 8, 19);
+        var suggestions = filterText(file, 8, 19);
 
         assertThat("suggests enum options", suggestions, hasItem("FULL"));
     }
@@ -737,7 +736,7 @@ public class CompletionsTest extends CompletionsBase {
     @Test
     public void staticStarImport() {
         var file = "/org/javacs/example/AutocompleteStaticImport.java";
-        var suggestions = insertText(file, 9, 15);
+        var suggestions = filterText(file, 9, 15);
 
         assertThat("suggests star-imported static method", suggestions, hasItems("emptyList"));
     }
@@ -745,7 +744,7 @@ public class CompletionsTest extends CompletionsBase {
     @Test
     public void staticImport() {
         var file = "/org/javacs/example/AutocompleteStaticImport.java";
-        var suggestions = insertText(file, 10, 10);
+        var suggestions = filterText(file, 10, 10);
 
         assertThat("suggests star-imported static field", suggestions, hasItems("BC"));
     }
@@ -753,7 +752,7 @@ public class CompletionsTest extends CompletionsBase {
     @Test
     public void staticImportSourcePath() {
         var file = "/org/javacs/example/AutocompleteStaticImport.java";
-        var suggestions = insertText(file, 11, 10);
+        var suggestions = filterText(file, 11, 10);
 
         assertThat(
                 "suggests star-imported public static field from source path",
@@ -768,7 +767,7 @@ public class CompletionsTest extends CompletionsBase {
     @Test
     public void withinConstructor() {
         var file = "/org/javacs/example/AutocompleteContext.java";
-        var suggestions = insertText(file, 8, 38);
+        var suggestions = filterText(file, 8, 38);
 
         assertThat("suggests local variable", suggestions, hasItems("length"));
     }
@@ -786,21 +785,17 @@ public class CompletionsTest extends CompletionsBase {
     @Test
     public void overloadedOnSourcePath() {
         var file = "/org/javacs/example/OverloadedMethod.java";
-        var detail = detail(file, 9, 13);
+        var labels = label(file, 9, 13);
 
-        assertThat("suggests empty method", detail, hasItem("void overloaded()"));
-        assertThat("suggests int method", detail, hasItem("void overloaded(int i)"));
-        assertThat("suggests string method", detail, hasItem("void overloaded(String s)"));
+        assertThat("suggests overloads", labels, hasItem("overloaded() (+2 overloads)"));
     }
 
     @Test
     public void overloadedOnClassPath() {
         var file = "/org/javacs/example/OverloadedMethod.java";
-        var detail = detail(file, 10, 26);
+        var labels = label(file, 10, 26);
 
-        assertThat("suggests empty method", detail, hasItem("List<E> of()"));
-        assertThat("suggests one-arg method", detail, hasItem("List<E> of(E e1)"));
-        // assertThat("suggests vararg method", detail, hasItem("of(elements)"));
+        assertThat("suggests overloads", labels, hasItem("of() (+11 overloads)"));
     }
 
     @Test
@@ -814,7 +809,7 @@ public class CompletionsTest extends CompletionsBase {
     @Test
     public void className() {
         var file = "/org/javacs/example/AutocompleteClassName.java";
-        var suggestions = insertText(file, 1, 2);
+        var suggestions = filterText(file, 1, 2);
 
         assertThat(suggestions, hasItem(startsWith("class AutocompleteClassName")));
     }
@@ -822,7 +817,7 @@ public class CompletionsTest extends CompletionsBase {
     @Test
     public void annotationInInnerClass() {
         var file = "/org/javacs/example/AnnotationInInnerClass.java";
-        var suggestions = insertText(file, 6, 17);
+        var suggestions = filterText(file, 6, 17);
 
         assertThat(suggestions, hasItem(startsWith("Override")));
     }
@@ -838,7 +833,7 @@ public class CompletionsTest extends CompletionsBase {
     @Test
     public void stringBuilderLength() {
         var file = "/org/javacs/example/CompleteStringBuilderLength.java";
-        var suggestions = insertText(file, 6, 12);
+        var suggestions = filterText(file, 6, 12);
 
         assertThat(suggestions, hasItem(containsString("length")));
     }
@@ -846,7 +841,7 @@ public class CompletionsTest extends CompletionsBase {
     @Test
     public void implementsKeyword() {
         var file = "/org/javacs/example/AutocompleteImplements.java";
-        var suggestions = insertText(file, 3, 34);
+        var suggestions = filterText(file, 3, 34);
 
         assertThat(suggestions, hasItem(containsString("implements")));
     }
@@ -854,7 +849,7 @@ public class CompletionsTest extends CompletionsBase {
     @Test
     public void importStaticPackage() {
         var file = "/org/javacs/example/AutocompleteImportStatic.java";
-        var suggestions = insertText(file, 3, 20);
+        var suggestions = filterText(file, 3, 20);
 
         assertThat(suggestions, hasItem(containsString("util")));
     }
@@ -875,7 +870,7 @@ public class CompletionsTest extends CompletionsBase {
             changes.changes = List.of(created);
             server.didChangeWatchedFiles(changes);
             // Autocomplete `New`
-            var suggestions = insertText("/org/javacs/example/AutocompleteNewFile.java", 5, 12);
+            var suggestions = filterText("/org/javacs/example/AutocompleteNewFile.java", 5, 12);
             assertThat(suggestions, hasItem(containsString("NewlyCreatedFile")));
         } finally {
             Files.delete(file);

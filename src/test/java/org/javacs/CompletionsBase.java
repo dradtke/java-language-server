@@ -24,10 +24,32 @@ public class CompletionsBase {
         return text;
     }
 
+    static String itemFilterText(CompletionItem i) {
+        var text = i.filterText;
+
+        if (text == null) text = i.label;
+
+        assert text != null : "Either insertText or label must be defined";
+
+        return text;
+    }
+
+    protected Set<String> label(String file, int row, int column) {
+        var items = items(file, row, column);
+
+        return items.stream().map(i -> i.label).collect(Collectors.toSet());
+    }
+
     protected Set<String> insertText(String file, int row, int column) {
         var items = items(file, row, column);
 
         return items.stream().map(CompletionsBase::itemInsertText).collect(Collectors.toSet());
+    }
+
+    protected Set<String> filterText(String file, int row, int column) {
+        var items = items(file, row, column);
+
+        return items.stream().map(CompletionsBase::itemFilterText).collect(Collectors.toSet());
     }
 
     protected Set<String> detail(String file, int row, int column) {

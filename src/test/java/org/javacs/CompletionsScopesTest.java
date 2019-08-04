@@ -14,7 +14,7 @@ public class CompletionsScopesTest extends CompletionsBase {
         var file = "/org/javacs/example/AutocompleteScopes.java";
 
         // Static method
-        var suggestions = insertText(file, 15, 14);
+        var suggestions = filterText(file, 15, 14);
 
         // Locals
         assertThat(suggestions, hasItems("testLocalVariables", "testArguments"));
@@ -39,13 +39,13 @@ public class CompletionsScopesTest extends CompletionsBase {
         var file = "/org/javacs/example/AutocompleteScopes.java";
 
         // StaticSub.this, StaticSub.super
-        assertThat(insertText(file, 37, 23), hasItems("this"));
+        assertThat(filterText(file, 37, 23), hasItems("this"));
         // AutocompleteScopes.this, AutocompleteScopes.super
         // TODO this is not accessible
-        // assertThat(insertText(file, 39, 32), not(hasItems("this")));
+        // assertThat(filterText(file, 39, 32), not(hasItems("this")));
         // Super.this, Super.super
         // TODO this is not accessible
-        // assertThat(insertText(file, 41, 19), not(hasItems("this")));
+        // assertThat(filterText(file, 41, 19), not(hasItems("this")));
     }
 
     @Test
@@ -53,7 +53,7 @@ public class CompletionsScopesTest extends CompletionsBase {
         var file = "/org/javacs/example/AutocompleteScopes.java";
 
         // Static method
-        var suggestions = insertText(file, 45, 22);
+        var suggestions = filterText(file, 45, 22);
 
         // Locals
         assertThat(suggestions, hasItems("testLocalVariables", "testArguments"));
@@ -78,13 +78,13 @@ public class CompletionsScopesTest extends CompletionsBase {
         var file = "/org/javacs/example/AutocompleteScopes.java";
 
         // StaticSub.this, StaticSub.super
-        assertThat(insertText(file, 67, 31), hasItems("this"));
+        assertThat(filterText(file, 67, 31), hasItems("this"));
         // AutocompleteScopes.this, AutocompleteScopes.super
         // TODO this is not accessible
-        // assertThat(insertText(file, 69, 40), not(hasItems("this")));
+        // assertThat(filterText(file, 69, 40), not(hasItems("this")));
         // Super.this, Super.super
         // TODO this is not accessible
-        // assertThat(insertText(file, 71, 27), not(hasItems("this")));
+        // assertThat(filterText(file, 71, 27), not(hasItems("this")));
     }
 
     @Test
@@ -92,7 +92,7 @@ public class CompletionsScopesTest extends CompletionsBase {
         var file = "/org/javacs/example/AutocompleteScopes.java";
 
         // Static method
-        var suggestions = insertText(file, 78, 14);
+        var suggestions = filterText(file, 78, 14);
 
         // Locals
         assertThat(suggestions, hasItems("testLocalVariables", "testArguments"));
@@ -119,11 +119,11 @@ public class CompletionsScopesTest extends CompletionsBase {
         var file = "/org/javacs/example/AutocompleteScopes.java";
 
         // StaticSub.this, StaticSub.super
-        assertThat(insertText(file, 100, 23), not(hasItems("this")));
+        assertThat(filterText(file, 100, 23), not(hasItems("this")));
         // AutocompleteScopes.this, AutocompleteScopes.super
-        assertThat(insertText(file, 102, 32), not(hasItems("this")));
+        assertThat(filterText(file, 102, 32), not(hasItems("this")));
         // Super.this, Super.super
-        assertThat(insertText(file, 104, 19), not(hasItems("this")));
+        assertThat(filterText(file, 104, 19), not(hasItems("this")));
     }
 
     @Test
@@ -131,7 +131,7 @@ public class CompletionsScopesTest extends CompletionsBase {
         var file = "/org/javacs/example/AutocompleteScopes.java";
 
         // Static method
-        var suggestions = insertText(file, 108, 22);
+        var suggestions = filterText(file, 108, 22);
 
         // Locals
         assertThat(suggestions, hasItems("testLocalVariables", "testArguments"));
@@ -160,11 +160,11 @@ public class CompletionsScopesTest extends CompletionsBase {
         var file = "/org/javacs/example/AutocompleteScopes.java";
 
         // StaticSub.this, StaticSub.super
-        assertThat(insertText(file, 130, 31), not(hasItems("this")));
+        assertThat(filterText(file, 130, 31), not(hasItems("this")));
         // AutocompleteScopes.this, AutocompleteScopes.super
-        assertThat(insertText(file, 132, 40), not(hasItems("this")));
+        assertThat(filterText(file, 132, 40), not(hasItems("this")));
         // Super.this, Super.super
-        assertThat(insertText(file, 134, 27), not(hasItems("this")));
+        assertThat(filterText(file, 134, 27), not(hasItems("this")));
     }
 
     @Test
@@ -172,7 +172,7 @@ public class CompletionsScopesTest extends CompletionsBase {
         var file = "/org/javacs/example/AutocompleteScopes.java";
 
         // Static method
-        var suggestions = insertText(file, 143, 14);
+        var suggestions = filterText(file, 143, 14);
 
         // Locals
         assertThat(suggestions, hasItems("testLocalVariables", "testArguments"));
@@ -196,12 +196,12 @@ public class CompletionsScopesTest extends CompletionsBase {
         var file = "/org/javacs/example/AutocompleteScopes.java";
 
         // sub.this, sub.super
-        assertThat(insertText(file, 158, 17), hasItems("this"));
+        assertThat(filterText(file, 158, 17), hasItems("this"));
         // AutocompleteScopes.this, AutocompleteScopes.super
-        assertThat(insertText(file, 160, 32), hasItems("this"));
+        assertThat(filterText(file, 160, 32), hasItems("this"));
         // Super.this, Super.super
         // TODO this is not accessible
-        // assertThat(insertText(file, 162, 19), not(hasItems("this")));
+        // assertThat(filterText(file, 162, 19), not(hasItems("this")));
     }
 
     @Test
@@ -209,7 +209,7 @@ public class CompletionsScopesTest extends CompletionsBase {
         var file = "/org/javacs/example/AutocompleteScopes.java";
 
         // Static method
-        var suggestions = insertText(file, 166, 22);
+        var suggestions = filterText(file, 166, 22);
 
         // Locals
         assertThat(suggestions, hasItems("testLocalVariables", "testArguments"));
@@ -233,11 +233,11 @@ public class CompletionsScopesTest extends CompletionsBase {
         var file = "/org/javacs/example/AutocompleteScopes.java";
 
         // sub.this, sub.super
-        assertThat(insertText(file, 181, 25), hasItems("this"));
+        assertThat(filterText(file, 181, 25), hasItems("this"));
         // AutocompleteScopes.this, AutocompleteScopes.super
-        assertThat(insertText(file, 183, 40), hasItems("this"));
+        assertThat(filterText(file, 183, 40), hasItems("this"));
         // Super.this, Super.super
         // TODO this is not accessible
-        // assertThat(insertText(file, 185, 27), not(hasItems("this")));
+        // assertThat(filterText(file, 185, 27), not(hasItems("this")));
     }
 }
