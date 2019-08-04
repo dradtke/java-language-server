@@ -204,7 +204,7 @@ public class JavaCompilerServiceTest {
     @Test
     public void overloads() {
         var uri = resourceUri("Overloads.java");
-        var found = compiler.compileFocus(uri, 3, 15).methodInvocation(uri, 3, 15).get();
+        var found = compiler.compileFocus(uri, 3, 15).signatureHelp(uri, 3, 15).get();
         var strings = found.signatures.stream().map(s -> s.label).collect(Collectors.toList());
 
         assertThat(strings, hasItem(containsString("print(int i)")));
@@ -258,7 +258,7 @@ public class JavaCompilerServiceTest {
     @Test
     public void localDoc() {
         var uri = resourceUri("LocalMethodDoc.java");
-        var invocation = compiler.compileFocus(uri, 3, 21).methodInvocation(uri, 3, 21).get();
+        var invocation = compiler.compileFocus(uri, 3, 21).signatureHelp(uri, 3, 21).get();
         var method = invocation.signatures.get(invocation.activeSignature);
         assertThat(method.documentation.value, containsString("A great method"));
     }

@@ -479,7 +479,7 @@ class CompileBatch implements AutoCloseable {
     }
 
     /** Find all overloads for the smallest method call that includes the cursor */
-    Optional<SignatureHelp> methodInvocation(URI file, int line, int character) {
+    Optional<SignatureHelp> signatureHelp(URI file, int line, int character) {
         LOG.info(String.format("Find method invocation around %s(%d,%d)...", file, line, character));
         var cursor = findPath(file, line, character);
         for (var path = cursor; path != null; path = path.getParentPath()) {

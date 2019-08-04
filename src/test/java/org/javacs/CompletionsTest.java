@@ -789,8 +789,8 @@ public class CompletionsTest extends CompletionsBase {
         var detail = detail(file, 9, 13);
 
         assertThat("suggests empty method", detail, hasItem("void overloaded()"));
-        assertThat("suggests int method", detail, hasItem("void overloaded(i)"));
-        assertThat("suggests string method", detail, hasItem("void overloaded(s)"));
+        assertThat("suggests int method", detail, hasItem("void overloaded(int i)"));
+        assertThat("suggests string method", detail, hasItem("void overloaded(String s)"));
     }
 
     @Test
@@ -799,7 +799,7 @@ public class CompletionsTest extends CompletionsBase {
         var detail = detail(file, 10, 26);
 
         assertThat("suggests empty method", detail, hasItem("List<E> of()"));
-        assertThat("suggests one-arg method", detail, hasItem("List<E> of(e1)"));
+        assertThat("suggests one-arg method", detail, hasItem("List<E> of(E e1)"));
         // assertThat("suggests vararg method", detail, hasItem("of(elements)"));
     }
 

@@ -303,7 +303,7 @@ class JavaLanguageServer extends LanguageServer {
         var methodTree = (MethodTree) tree;
         var args = new StringJoiner(", ");
         for (var p : methodTree.getParameters()) {
-            args.add(p.getName());
+            args.add(p.getType() + " " + p.getName());
         }
         var details = String.format("%s %s(%s)", methodTree.getReturnType(), methodTree.getName(), args);
         return Optional.of(details);
@@ -440,7 +440,7 @@ class JavaLanguageServer extends LanguageServer {
         var line = position.position.line + 1;
         var column = position.position.character + 1;
         try (var focus = compiler().compileFocus(uri, line, column)) {
-            return focus.methodInvocation(uri, line, column);
+            return focus.signatureHelp(uri, line, column);
         }
     }
 
