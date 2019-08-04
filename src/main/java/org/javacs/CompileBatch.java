@@ -42,7 +42,9 @@ class CompileBatch implements AutoCloseable {
         this.roots = new ArrayList<CompilationUnitTree>();
         // Compile all roots
         try {
-            for (var t : borrow.task.parse()) roots.add(t);
+            for (var t : borrow.task.parse()) {
+                roots.add(t);
+            }
             // The results of borrow.task.analyze() are unreliable when errors are present
             // You can get at `Element` values using `Trees`
             borrow.task.analyze();
@@ -59,14 +61,8 @@ class CompileBatch implements AutoCloseable {
     private static ReusableCompiler.Borrow batchTask(
             JavaCompilerService parent, Collection<? extends JavaFileObject> sources) {
         parent.diags.clear();
-
-        return parent.compiler.getTask(
-                null,
-                parent.fileManager,
-                parent.diags::add,
-                JavaCompilerService.options(parent.classPath, parent.addExports),
-                List.of(),
-                sources);
+        var options = JavaCompilerService.options(parent.classPath, parent.addExports);
+        return parent.compiler.getTask(null, parent.fileManager, parent.diags::add, options, List.of(), sources);
     }
 
     CompilationUnitTree root(URI uri) {
@@ -294,31 +290,6 @@ class CompileBatch implements AutoCloseable {
         return Optional.of(list);
     }
 
-    /**
-     * Find all elements in `file` that get turned into code-lenses. This needs to match the result of
-     * `Parser#declarations`
-     */
-    List<Element> declarations(URI file) {
-        for (var r : roots) {
-            if (!r.getSourceFile().toUri().equals(file)) continue;
-            var paths = Parser.declarations(r);
-            var els = new ArrayList<Element>();
-            for (var p : paths) {
-                var e = trees.getElement(p);
-                assert e != null;
-                els.add(e);
-            }
-            return els;
-        }
-
-        // Couldn't find file! Throw an error.
-        var message = new StringJoiner(", ");
-        for (var r : roots) {
-            message.add(StringSearch.fileName(r.getSourceFile().toUri()));
-        }
-        throw new RuntimeException(file + " is not in " + message);
-    }
-
     Optional<Range> range(TreePath path) {
         var uri = path.getCompilationUnit().getSourceFile().toUri();
         var contents = FileStore.contents(uri);
@@ -530,7 +501,6 @@ class CompileBatch implements AutoCloseable {
 
     private SignatureHelp asSignatureHelp(
             Optional<ExecutableElement> activeMethod, int activeParameter, List<ExecutableElement> overloads) {
-        // TODO use docs to get parameter names
         var sigs = new ArrayList<SignatureInformation>();
         for (var e : overloads) {
             sigs.add(asSignatureInformation(e));
