@@ -76,7 +76,7 @@ class InferConfig {
 
         // Bazel
         if (Files.exists(workspaceRoot.resolve("WORKSPACE"))) {
-            return bazelClassPath();
+            return bazelDeps("jars");
         }
 
         return Collections.emptySet();
@@ -102,7 +102,10 @@ class InferConfig {
             return mvnDependencies(pomXml, "dependency:sources");
         }
 
-        // TODO Bazel
+        // Bazel
+        if (Files.exists(workspaceRoot.resolve("WORKSPACE"))) {
+            return bazelDeps("srcjar");
+        }
 
         return Collections.emptySet();
     }
@@ -253,10 +256,11 @@ class InferConfig {
     private static final Pattern LOCATION = Pattern.compile("(.*):\\d+:\\d+: source file @(.*)//jar:(.*\\.jar)");
     private static final Path NOT_FOUND = Paths.get("");
 
-    private Set<Path> bazelClassPath() {
+    private Set<Path> bazelDeps(String labelsFilter) {
         try {
             // Run bazel as a subprocess
-            String[] command = {"bazel", "query", "labels(jars, deps(...))", "--output", "location"};
+            var query = "labels(" + labelsFilter + ", deps(...))";
+            String[] command = {"bazel", "query", query, "--output", "location"};
             var output = Files.createTempFile("java-language-server-bazel-output", ".txt");
             var process =
                     new ProcessBuilder()

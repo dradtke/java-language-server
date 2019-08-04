@@ -18,4 +18,9 @@ public class InferBazelConfigTest {
     public void bazelClassPath() {
         assertThat(bazel.classPath(), contains(hasToString(endsWith("guava-18.0.jar"))));
     }
+
+    @Test
+    public void bazelDocPath() {
+        assertThat(bazel.buildDocPath(), contains(hasToString(endsWith("guava-18.0-sources.jar"))));
+    }
 }
