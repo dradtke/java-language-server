@@ -19,37 +19,57 @@ class WarnUnused extends TreePathScanner<Void, Void> {
         return declared;
     }
 
-    Element current() {
-        return trees.getElement(getCurrentPath());
+    private void foundDeclaration() {
+        var el = trees.getElement(getCurrentPath());
+        declared.add(el);
     }
 
-    boolean isPrivate(VariableTree t) {
+    private void foundReference() {
+        var path = getCurrentPath();
+        var file = path.getCompilationUnit();
+        var el = trees.getElement(path);
+        // Check if reference is within declaration
+        var declaration = trees.getTree(el);
+        var reference = path.getLeaf();
+        var pos = trees.getSourcePositions();
+        var startD = pos.getStartPosition(file, declaration);
+        var endD = pos.getEndPosition(file, declaration);
+        var startRef = pos.getStartPosition(file, reference);
+        var endRef = pos.getEndPosition(file, reference);
+        if (startD < startRef && endRef < endD) {
+            return;
+        }
+        // Otherwise, note that el has been used
+        used.add(el);
+    }
+
+    private boolean isPrivate(VariableTree t) {
         return t.getModifiers().getFlags().contains(Modifier.PRIVATE);
     }
 
-    boolean isPrivate(MethodTree t) {
+    private boolean isPrivate(MethodTree t) {
         return t.getModifiers().getFlags().contains(Modifier.PRIVATE);
     }
 
-    boolean isPrivate(ClassTree t) {
+    private boolean isPrivate(ClassTree t) {
         return t.getModifiers().getFlags().contains(Modifier.PRIVATE);
     }
 
-    boolean isLocal(VariableTree t) {
+    private boolean isLocal(VariableTree t) {
         var parent = getCurrentPath().getParentPath().getLeaf();
         return !(parent instanceof ClassTree)
                 && !(parent instanceof MethodTree) // TODO hint for unused parameters
                 && !(parent instanceof LambdaExpressionTree);
     }
 
-    boolean isEmptyConstructor(MethodTree t) {
+    private boolean isEmptyConstructor(MethodTree t) {
         return t.getParameters().isEmpty() && t.getReturnType() == null;
     }
 
     @Override
     public Void visitVariable(VariableTree t, Void __) {
         if (isPrivate(t) || isLocal(t)) {
-            declared.add(current());
+            foundDeclaration();
         }
         return super.visitVariable(t, null);
     }
@@ -57,7 +77,7 @@ class WarnUnused extends TreePathScanner<Void, Void> {
     @Override
     public Void visitMethod(MethodTree t, Void __) {
         if (isPrivate(t) && !isEmptyConstructor(t)) {
-            declared.add(current());
+            foundDeclaration();
         }
         return super.visitMethod(t, null);
     }
@@ -65,32 +85,32 @@ class WarnUnused extends TreePathScanner<Void, Void> {
     @Override
     public Void visitClass(ClassTree t, Void __) {
         if (isPrivate(t)) {
-            declared.add(current());
+            foundDeclaration();
         }
         return super.visitClass(t, null);
     }
 
     @Override
     public Void visitIdentifier(IdentifierTree t, Void __) {
-        used.add(current());
+        foundReference();
         return super.visitIdentifier(t, null);
     }
 
     @Override
     public Void visitMemberSelect(MemberSelectTree t, Void __) {
-        used.add(current());
+        foundReference();
         return super.visitMemberSelect(t, null);
     }
 
     @Override
     public Void visitMemberReference(MemberReferenceTree t, Void __) {
-        used.add(current());
+        foundReference();
         return super.visitMemberReference(t, null);
     }
 
     @Override
     public Void visitNewClass(NewClassTree t, Void __) {
-        used.add(current());
+        foundReference();
         return super.visitNewClass(t, null);
     }
 }

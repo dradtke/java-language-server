@@ -22,4 +22,8 @@ class Unused {
     private Unused(int i) { }
 
     private class UnusedClass { }
+
+    private void unusedSelfReference() {
+        unusedSelfReference();
+    }
 }
