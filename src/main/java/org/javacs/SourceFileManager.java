@@ -64,16 +64,16 @@ class SourceFileManager extends ForwardingJavaFileManager<StandardJavaFileManage
     @Override
     public JavaFileObject getJavaFileForInput(Location location, String className, JavaFileObject.Kind kind)
             throws IOException {
+        // FileStore shadows disk
         if (location == StandardLocation.SOURCE_PATH) {
             var packageName = StringSearch.mostName(className);
             var simpleClassName = StringSearch.lastName(className);
-            // First, look for ClassName.java
             for (var f : FileStore.list(packageName)) {
                 if (f.getFileName().toString().equals(simpleClassName + kind.extension)) {
                     return new SourceFileObject(f);
                 }
             }
-            return null;
+            // Fall through to disk in case we have .jar or .zip files on the source path
         }
         return super.getJavaFileForInput(location, className, kind);
     }
