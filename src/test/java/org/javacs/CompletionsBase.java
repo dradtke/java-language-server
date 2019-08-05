@@ -83,8 +83,6 @@ public class CompletionsBase {
 
         assert text != null : "Either insertText or label must be defined";
 
-        if (text.endsWith("($0)")) text = text.substring(0, text.length() - "($0)".length());
-
         return text;
     }
 

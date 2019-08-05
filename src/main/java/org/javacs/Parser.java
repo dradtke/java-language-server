@@ -216,6 +216,7 @@ class Parser {
         var pos = trees.getSourcePositions();
         var lines = root.getLineMap();
         var cursor = lines.getPosition(line, character);
+        var addParens = !(contents.length() > cursor && contents.charAt((int) cursor) == '(');
 
         class FindCompletionPosition extends TreeScanner<Void, Void> {
             CompletionContext result = null;
@@ -250,6 +251,7 @@ class Parser {
                     long offset = pos.getEndPosition(root, node.getExpression());
                     int line = (int) lines.getLineNumber(offset), character = (int) lines.getColumnNumber(offset);
                     var partialName = Objects.toString(node.getIdentifier(), "");
+                    // TODO lots of repetitive code here
                     result =
                             new CompletionContext(
                                     line,
@@ -257,7 +259,8 @@ class Parser {
                                     insideClass > 0,
                                     insideMethod > 0,
                                     CompletionContext.Kind.MemberSelect,
-                                    partialName);
+                                    partialName,
+                                    addParens);
                 }
                 return null;
             }
@@ -278,7 +281,8 @@ class Parser {
                                     insideClass > 0,
                                     insideMethod > 0,
                                     CompletionContext.Kind.MemberReference,
-                                    partialName);
+                                    partialName,
+                                    addParens);
                 }
                 return null;
             }
@@ -302,7 +306,8 @@ class Parser {
                                     insideClass > 0,
                                     insideMethod > 0,
                                     CompletionContext.Kind.Case,
-                                    partialName);
+                                    partialName,
+                                    addParens);
                 } else {
                     super.visitCase(node, nothing);
                 }
@@ -323,7 +328,8 @@ class Parser {
                                     insideClass > 0,
                                     insideMethod > 0,
                                     CompletionContext.Kind.Identifier,
-                                    partialName);
+                                    partialName,
+                                    addParens);
                 }
                 return null;
             }
@@ -341,7 +347,8 @@ class Parser {
                                     insideClass > 0,
                                     insideMethod > 0,
                                     CompletionContext.Kind.Annotation,
-                                    partialName);
+                                    partialName,
+                                    addParens);
                 } else {
                     super.visitAnnotation(node, nothing);
                 }
@@ -1291,21 +1298,30 @@ class Parser {
 }
 
 class CompletionContext {
-    static final CompletionContext UNKNOWN = new CompletionContext(-1, -1, false, false, null, null);
+    static final CompletionContext UNKNOWN = new CompletionContext(-1, -1, false, false, null, null, false);
 
     // 1-based
     final int line, character;
     final boolean inClass, inMethod;
     final Kind kind;
     final String partialName;
+    final boolean addParens;
 
-    CompletionContext(int line, int character, boolean inClass, boolean inMethod, Kind kind, String partialName) {
+    CompletionContext(
+            int line,
+            int character,
+            boolean inClass,
+            boolean inMethod,
+            Kind kind,
+            String partialName,
+            boolean addParens) {
         this.line = line;
         this.character = character;
         this.inClass = inClass;
         this.inMethod = inMethod;
         this.kind = kind;
         this.partialName = partialName;
+        this.addParens = addParens;
     }
 
     enum Kind {

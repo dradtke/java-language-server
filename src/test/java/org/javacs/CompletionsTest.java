@@ -883,4 +883,18 @@ public class CompletionsTest extends CompletionsBase {
             server.didChangeWatchedFiles(changes);
         }
     }
+
+    @Test
+    public void completeParens() {
+        var inserts = insertText("/org/javacs/example/CompleteParens.java", 5, 12);
+        assertThat(inserts, hasItem("returnsVoid()$0"));
+        assertThat(inserts, hasItem("returnsString()$0"));
+        assertThat(inserts, hasItem("returnsArg($0)"));
+    }
+
+    @Test
+    public void dontCompleteParens() {
+        var inserts = insertText("/org/javacs/example/DontCompleteParens.java", 5, 19);
+        assertThat(inserts, hasItem("returnsString"));
+    }
 }

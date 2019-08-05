@@ -129,7 +129,9 @@ public class JavaCompilerServiceTest {
         var uri = resourceUri("CompleteIdentifiers.java");
         var ctx = Parser.parseFile(uri).completionContext(13, 21);
         var focus = compiler.compileFocus(uri, ctx.line, ctx.character);
-        var found = focus.completeIdentifiers(uri, ctx.line, ctx.character, ctx.inClass, ctx.inMethod, ctx.partialName);
+        var found =
+                focus.completeIdentifiers(
+                        uri, ctx.line, ctx.character, ctx.inClass, ctx.inMethod, ctx.partialName, ctx.addParens);
         var names = filterText(found);
         assertThat(names, hasItem("completeLocal"));
         assertThat(names, hasItem("completeParam"));
@@ -146,7 +148,7 @@ public class JavaCompilerServiceTest {
     public void members() {
         var uri = resourceUri("CompleteMembers.java");
         var focus = compiler.compileFocus(uri, 3, 14);
-        var found = focus.completeMembers(uri, 3, 14);
+        var found = focus.completeMembers(uri, 3, 14, true);
         var names = filterText(found);
         assertThat(names, hasItem("subMethod"));
         assertThat(names, hasItem("superMethod"));
@@ -158,7 +160,7 @@ public class JavaCompilerServiceTest {
         var uri = resourceUri("CompleteMembers.java");
         var ctx = Parser.parseFile(uri).completionContext(3, 15);
         var focus = compiler.compileFocus(uri, ctx.line, ctx.character);
-        var found = focus.completeMembers(uri, ctx.line, ctx.character);
+        var found = focus.completeMembers(uri, ctx.line, ctx.character, ctx.addParens);
         var names = filterText(found);
         assertThat(names, hasItem("subMethod"));
         assertThat(names, hasItem("superMethod"));
@@ -170,7 +172,7 @@ public class JavaCompilerServiceTest {
         var uri = resourceUri("CompleteExpression.java");
         var ctx = Parser.parseFile(uri).completionContext(3, 37);
         var focus = compiler.compileFocus(uri, ctx.line, ctx.character);
-        var found = focus.completeMembers(uri, ctx.line, ctx.character);
+        var found = focus.completeMembers(uri, ctx.line, ctx.character, ctx.addParens);
         var names = filterText(found);
         assertThat(names, hasItem("instanceMethod"));
         assertThat(names, not(hasItem("create")));
@@ -182,7 +184,7 @@ public class JavaCompilerServiceTest {
         var uri = resourceUri("CompleteClass.java");
         var ctx = Parser.parseFile(uri).completionContext(3, 23);
         var focus = compiler.compileFocus(uri, ctx.line, ctx.character);
-        var found = focus.completeMembers(uri, ctx.line, ctx.character);
+        var found = focus.completeMembers(uri, ctx.line, ctx.character, ctx.addParens);
         var names = filterText(found);
         assertThat(names, hasItems("staticMethod", "staticField"));
         assertThat(names, hasItems("class"));
@@ -195,7 +197,7 @@ public class JavaCompilerServiceTest {
         var uri = resourceUri("CompleteImports.java");
         var ctx = Parser.parseFile(uri).completionContext(1, 18);
         var focus = compiler.compileFocus(uri, ctx.line, ctx.character);
-        var found = focus.completeMembers(uri, ctx.line, ctx.character);
+        var found = focus.completeMembers(uri, ctx.line, ctx.character, ctx.addParens);
         var names = filterText(found);
         assertThat(names, hasItem("List"));
         assertThat(names, hasItem("concurrent"));
