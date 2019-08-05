@@ -8,21 +8,28 @@ import javax.lang.model.type.*;
 import javax.lang.model.util.AbstractTypeVisitor8;
 
 class ShortTypePrinter extends AbstractTypeVisitor8<String, Void> {
-    private ShortTypePrinter() {}
+    // TODO reduce usage of DEFAULT in favor of context-specific "suppress my own package" printer
+    public static final ShortTypePrinter DEFAULT = new ShortTypePrinter("");
+    public static final ShortTypePrinter NO_PACKAGE = new ShortTypePrinter("*");
 
-    static String print(TypeMirror type) {
-        // TODO allow packageContext which suppresses printing of those package prefixes
-        return type.accept(new ShortTypePrinter(), null);
+    private final String packageContext;
+
+    private ShortTypePrinter(String packageContext) {
+        this.packageContext = packageContext;
+    }
+
+    String print(TypeMirror type) {
+        return type.accept(new ShortTypePrinter(packageContext), null);
     }
 
     @Override
     public String visitIntersection(IntersectionType t, Void aVoid) {
-        return t.getBounds().stream().map(ShortTypePrinter::print).collect(Collectors.joining(" & "));
+        return t.getBounds().stream().map(this::print).collect(Collectors.joining(" & "));
     }
 
     @Override
     public String visitUnion(UnionType t, Void aVoid) {
-        return t.getAlternatives().stream().map(ShortTypePrinter::print).collect(Collectors.joining(" | "));
+        return t.getAlternatives().stream().map(this::print).collect(Collectors.joining(" | "));
     }
 
     @Override
@@ -45,14 +52,15 @@ class ShortTypePrinter extends AbstractTypeVisitor8<String, Void> {
         var result = t.asElement().toString();
 
         if (!t.getTypeArguments().isEmpty()) {
-            String params =
-                    t.getTypeArguments().stream().map(ShortTypePrinter::print).collect(Collectors.joining(", "));
+            String params = t.getTypeArguments().stream().map(this::print).collect(Collectors.joining(", "));
 
             result += "<" + params + ">";
         }
 
-        if (result.startsWith("java.lang")) return result.substring("java.lang.".length());
+        if (packageContext.equals("*")) return result.substring(result.lastIndexOf('.') + 1);
+        else if (result.startsWith("java.lang")) return result.substring("java.lang.".length());
         else if (result.startsWith("java.util")) return result.substring("java.util.".length());
+        else if (result.startsWith(packageContext)) return result.substring(packageContext.length());
         else return result;
     }
 
@@ -97,12 +105,12 @@ class ShortTypePrinter extends AbstractTypeVisitor8<String, Void> {
         return e.getParameters().stream().allMatch(p -> p.getSimpleName().toString().matches("arg\\d+"));
     }
 
-    private static String printArguments(ExecutableElement e) {
+    private String printArguments(ExecutableElement e) {
         var result = new StringJoiner(", ");
         var missingParamNames = missingParamNames(e);
         for (var p : e.getParameters()) {
             var s = new StringBuilder();
-            s.append(ShortTypePrinter.print(p.asType()));
+            s.append(print(p.asType()));
             if (!missingParamNames) {
                 s.append(" ").append(p.getSimpleName());
             }
@@ -111,14 +119,14 @@ class ShortTypePrinter extends AbstractTypeVisitor8<String, Void> {
         return result.toString();
     }
 
-    static String printMethod(ExecutableElement m) {
+    String printMethod(ExecutableElement m) {
         if (m.getSimpleName().contentEquals("<init>")) {
             return m.getEnclosingElement().getSimpleName() + "(" + printArguments(m) + ")";
         } else {
             var result = new StringBuilder();
             // static void foo
             if (m.getModifiers().contains(Modifier.STATIC)) result.append("static ");
-            result.append(ShortTypePrinter.print(m.getReturnType())).append(" ");
+            result.append(print(m.getReturnType())).append(" ");
             result.append(m.getSimpleName());
             // (int arg, String other)
             result.append("(").append(printArguments(m)).append(")");
@@ -127,7 +135,7 @@ class ShortTypePrinter extends AbstractTypeVisitor8<String, Void> {
                 result.append(" throws ");
                 var types = new StringJoiner(", ");
                 for (var t : m.getThrownTypes()) {
-                    types.add(ShortTypePrinter.print(t));
+                    types.add(print(t));
                 }
                 result.append(types);
             }

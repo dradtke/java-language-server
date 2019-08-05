@@ -556,7 +556,7 @@ class CompileBatch implements AutoCloseable {
             var fromType = e.getParameters().get(i);
             var info = new ParameterInformation();
             var name = fromSource.getName().toString();
-            var type = ShortTypePrinter.print(fromType.asType());
+            var type = ShortTypePrinter.DEFAULT.print(fromType.asType());
             info.label = type + " " + name;
             if (paramComments.containsKey(name)) {
                 var markdown = paramComments.get(name);
@@ -572,7 +572,7 @@ class CompileBatch implements AutoCloseable {
         var ps = new ArrayList<ParameterInformation>();
         for (var v : e.getParameters()) {
             var p = new ParameterInformation();
-            if (missingParamNames) p.label = ShortTypePrinter.print(v.asType());
+            if (missingParamNames) p.label = ShortTypePrinter.DEFAULT.print(v.asType());
             else p.label = v.getSimpleName().toString();
             ps.add(p);
         }
@@ -630,7 +630,7 @@ class CompileBatch implements AutoCloseable {
                 var mods = method.getModifiers();
                 if (mods.contains(Modifier.STATIC) || mods.contains(Modifier.PRIVATE)) continue;
 
-                var label = "@Override " + ShortTypePrinter.printMethod(method);
+                var label = "@Override " + ShortTypePrinter.DEFAULT.printMethod(method);
                 var snippet = "Override\n" + new TemplatePrinter().printMethod(method) + " {\n    $0\n}";
                 var override = snippetCompletion(label, snippet);
                 if (!alreadyShown.contains(label)) {
@@ -1358,7 +1358,7 @@ class CompileBatch implements AutoCloseable {
         var i = new CompletionItem();
         i.label = e.getSimpleName().toString();
         i.kind = completionItemKind(e);
-        i.detail = ShortTypePrinter.print(e.asType());
+        i.detail = ShortTypePrinter.DEFAULT.print(e.asType());
         // TODO prioritize based on usage?
         // TODO prioritize based on scope
         if (isMemberOfObject(e)) {
@@ -1414,7 +1414,7 @@ class CompileBatch implements AutoCloseable {
     private String methodLabel(ExecutableElement method) {
         var args = new StringJoiner(", ");
         for (var p : method.getParameters()) {
-            args.add(ShortTypePrinter.print(p.asType()));
+            args.add(ShortTypePrinter.NO_PACKAGE.print(p.asType()));
         }
         return method.getSimpleName() + "(" + args + ")";
     }

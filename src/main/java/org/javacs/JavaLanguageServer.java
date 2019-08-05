@@ -345,8 +345,8 @@ class JavaLanguageServer extends LanguageServer {
                 LOG.warning("Don't know what to call type element " + t);
                 result.append("???");
         }
-        result.append(" ").append(ShortTypePrinter.print(t.asType()));
-        var superType = ShortTypePrinter.print(t.getSuperclass());
+        result.append(" ").append(ShortTypePrinter.DEFAULT.print(t.asType()));
+        var superType = ShortTypePrinter.DEFAULT.print(t.getSuperclass());
         switch (superType) {
             case "Object":
             case "none":
@@ -360,10 +360,10 @@ class JavaLanguageServer extends LanguageServer {
     private String hoverCode(Element e) {
         if (e instanceof ExecutableElement) {
             var m = (ExecutableElement) e;
-            return ShortTypePrinter.printMethod(m);
+            return ShortTypePrinter.DEFAULT.printMethod(m);
         } else if (e instanceof VariableElement) {
             var v = (VariableElement) e;
-            return ShortTypePrinter.print(v.asType()) + " " + v;
+            return ShortTypePrinter.DEFAULT.print(v.asType()) + " " + v;
         } else if (e instanceof TypeElement) {
             var t = (TypeElement) e;
             var lines = new StringJoiner("\n");
