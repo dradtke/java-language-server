@@ -326,7 +326,9 @@ class FileStore {
             }
 
             // Skip unchanged chars
-            for (int character = 0; character < range.start.character; character++) writer.write(reader.read());
+            for (int character = 0; character < range.start.character; character++) {
+                writer.write(reader.read());
+            }
 
             // Write replacement text
             writer.write(change.text);

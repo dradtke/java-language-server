@@ -1391,17 +1391,24 @@ class CompileBatch implements AutoCloseable {
 
     private void completeInvocation(List<ExecutableElement> methods, CompletionItem i) {
         var first = methods.get(0);
-        i.insertText = first.getSimpleName() + "($0)";
-        i.insertTextFormat = 2; // Snippet
-        i.command = new Command();
-        i.command.command = "editor.action.triggerParameterHints";
+        // Try to be as helpful as possible with insertText
         if (methods.size() == 1 && first.getParameters().isEmpty()) {
             if (first.getReturnType().getKind() == TypeKind.VOID) {
                 i.insertText = first.getSimpleName() + "();$0";
             } else {
                 i.insertText = first.getSimpleName() + "()$0";
             }
+        } else {
+            if (first.getReturnType().getKind() == TypeKind.VOID) {
+                i.insertText = first.getSimpleName() + "($0);";
+            } else {
+                i.insertText = first.getSimpleName() + "($0)";
+            }
+            // Activate signatureHelp
+            i.command = new Command();
+            i.command.command = "editor.action.triggerParameterHints";
         }
+        i.insertTextFormat = 2; // Snippet
     }
 
     private String methodLabel(ExecutableElement method) {
