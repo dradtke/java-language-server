@@ -164,26 +164,22 @@ class FileStore {
     }
 
     static String suggestedPackageName(Path file) {
-        var sourceRoot = suggestSourceRoot(file);
-        var relativePath = sourceRoot.relativize(file).getParent();
-        if (relativePath == null) return "";
-        return relativePath.toString().replace(File.separatorChar, '.');
-    }
-
-    private static Path suggestSourceRoot(Path file) {
+        // Look in each parent directory of file
         for (var dir = file.getParent(); dir != null; dir = dir.getParent()) {
-            for (var related : javaSourcesIn(dir)) {
-                if (related.equals(file)) continue;
-                var packageName = packageName(related);
-                var relativePath = Paths.get(packageName.replace('.', File.separatorChar));
-                var sourceRoot = dir;
-                for (var i = 0; i < relativePath.getNameCount(); i++) {
-                    sourceRoot = sourceRoot.getParent();
+            // Try to find a sibling with a package declaration
+            for (var sibling : javaSourcesIn(dir)) {
+                if (sibling.equals(file)) continue;
+                var packageName = packageName(sibling);
+                if (packageName.isBlank()) continue;
+                var relativePath = dir.relativize(file.getParent());
+                var relativePackage = relativePath.toString().replace(File.separatorChar, '.');
+                if (!relativePackage.isEmpty()) {
+                    packageName = packageName + "." + relativePackage;
                 }
-                return sourceRoot;
+                return packageName;
             }
         }
-        return file.getParent();
+        return "";
     }
 
     private static List<Path> javaSourcesIn(Path dir) {

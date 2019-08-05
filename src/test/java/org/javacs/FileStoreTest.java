@@ -16,8 +16,7 @@ public class FileStoreTest {
 
     @Test
     public void packageName() {
-        assertThat(
-                FileStore.suggestedPackageName(FindResource.path("/org/javacs/example/Goto.java")),
-                equalTo("org.javacs.example"));
+        var file = FindResource.path("/org/javacs/example/Goto.java");
+        assertThat(FileStore.suggestedPackageName(file), equalTo("org.javacs.example"));
     }
 }
