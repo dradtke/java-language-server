@@ -196,7 +196,7 @@
         "@types/mocha": "^2.2.42",
         "@types/node": "^10.14.6",
         "tree-sitter-cli": "^0.15.3",
-        "typescript": "^3.4.5",
+        "typescript": "^3.5.3",
         "vscode": "^1.1.33",
         "vscode-debugadapter-testsupport": "^1.35.0"
     }
