@@ -586,7 +586,8 @@ class CompileBatch implements AutoCloseable {
             boolean insideClass,
             boolean insideMethod,
             String partialName,
-            boolean addParens) {
+            boolean addParens,
+            boolean addSemi) {
         LOG.info(String.format("Completing identifiers starting with `%s`...", partialName));
 
         var root = root(uri);
@@ -613,7 +614,7 @@ class CompileBatch implements AutoCloseable {
             }
         }
         // Add identifiers
-        completeScopeIdentifiers(uri, line, character, partialName, addParens, result);
+        completeScopeIdentifiers(uri, line, character, partialName, addParens, addSemi, result);
         // Add keywords
         if (!insideClass) {
             addKeywords(TOP_LEVEL_KEYWORDS, partialName, result);
@@ -647,7 +648,7 @@ class CompileBatch implements AutoCloseable {
         }
         // Add @Override, @Test, other simple class names
         // We use 0 as the column number because if we focus javac on the partial @Annotation it will crash
-        completeScopeIdentifiers(uri, line, 0, partialName, false, result);
+        completeScopeIdentifiers(uri, line, 0, partialName, false, false, result);
         return result;
     }
 
@@ -674,7 +675,7 @@ class CompileBatch implements AutoCloseable {
         var definition = types.asElement(type);
         if (definition == null) {
             LOG.info("...type has no definition, completing identifiers instead");
-            return completeIdentifiers(uri, line, character, true, true, "", false); // TODO pass partial name
+            return completeIdentifiers(uri, line, character, true, true, "", false, false); // TODO pass partial name
         }
         LOG.info(String.format("...switched expression has definition `%s`", definition));
         var result = new ArrayList<CompletionItem>();
@@ -686,7 +687,7 @@ class CompileBatch implements AutoCloseable {
     }
 
     /** Find all members of expression ending at line:character */
-    List<CompletionItem> completeMembers(URI uri, int line, int character, boolean addParens) {
+    List<CompletionItem> completeMembers(URI uri, int line, int character, boolean addParens, boolean addSemi) {
         var path = findPath(uri, line, character);
         var element = trees.getElement(path);
         var type = trees.getTypeMirror(path);
@@ -695,14 +696,14 @@ class CompileBatch implements AutoCloseable {
             return completePackageMembers(path);
         } else if (element instanceof TypeElement) {
             var members = completeTypeMembers(path);
-            var result = groupByOverload(members, addParens);
+            var result = groupByOverload(members, addParens, addSemi);
             result.add(keywordCompletion("class"));
             result.add(keywordCompletion("this"));
             result.add(keywordCompletion("super"));
             return result;
         } else {
             var members = completeInstanceMembers(path);
-            var result = groupByOverload(members, addParens);
+            var result = groupByOverload(members, addParens, addSemi);
             if (type instanceof ArrayType) {
                 result.add(keywordCompletion("length"));
             }
@@ -726,14 +727,14 @@ class CompileBatch implements AutoCloseable {
                 }
             }
             // Form result
-            var result = groupByOverload(methods, false);
+            var result = groupByOverload(methods, false, false);
             // Add ::new
             result.add(keywordCompletion("new"));
 
             return result;
         } else {
             var members = completeInstanceMembers(path);
-            var result = groupByOverload(members, false);
+            var result = groupByOverload(members, false, false);
             return result;
         }
     }
@@ -831,7 +832,7 @@ class CompileBatch implements AutoCloseable {
         return result;
     }
 
-    private List<CompletionItem> groupByOverload(List<Element> members, boolean addParens) {
+    private List<CompletionItem> groupByOverload(List<Element> members, boolean addParens, boolean addSemi) {
         var result = new ArrayList<CompletionItem>();
         var methods = new HashMap<Name, List<ExecutableElement>>();
         for (var member : members) {
@@ -847,10 +848,7 @@ class CompileBatch implements AutoCloseable {
             }
         }
         for (var overload : methods.values()) {
-            var i = overloadCompletion(overload);
-            if (addParens) {
-                addParens(overload, i);
-            }
+            var i = overloadCompletion(overload, addParens, addSemi);
             result.add(i);
         }
         return result;
@@ -1152,16 +1150,22 @@ class CompileBatch implements AutoCloseable {
     }
 
     private void completeScopeIdentifiers(
-            URI uri, int line, int character, String partialName, boolean addParens, List<CompletionItem> result) {
+            URI uri,
+            int line,
+            int character,
+            String partialName,
+            boolean addParens,
+            boolean addSemi,
+            List<CompletionItem> result) {
         var root = root(uri);
         // Add locals
         var locals = scopeMembers(uri, line, character, partialName);
-        result.addAll(groupByOverload(locals, addParens));
+        result.addAll(groupByOverload(locals, addParens, addSemi));
         LOG.info(String.format("...found %d locals", locals.size()));
 
         // Add static imports
         var staticImports = staticImports(uri, partialName);
-        result.addAll(groupByOverload(staticImports, addParens));
+        result.addAll(groupByOverload(staticImports, addParens, addSemi));
         LOG.info(String.format("...found %d static imports", staticImports.size()));
 
         // Add classes
@@ -1378,35 +1382,46 @@ class CompileBatch implements AutoCloseable {
         return i;
     }
 
-    private CompletionItem overloadCompletion(List<ExecutableElement> methods) {
+    private CompletionItem overloadCompletion(List<ExecutableElement> methods, boolean addParens, boolean addSemi) {
         var first = methods.get(0);
         var i = elementCompletion(first);
         i.label = methodLabel(first);
-        i.insertText = first.getSimpleName().toString();
         i.filterText = first.getSimpleName().toString();
         // Add (+n overloads)
         if (methods.size() > 1) {
             var overloads = methods.size() - 1;
             i.label += " (+" + overloads + " overloads)";
         }
+        // Try to be as helpful as possible with insertText
+        if (addParens) {
+            if (methods.size() == 1 && first.getParameters().isEmpty()) {
+                if (addSemi && first.getReturnType().getKind() == TypeKind.VOID) {
+                    i.insertText = first.getSimpleName() + "();$0";
+                } else {
+                    i.insertText = first.getSimpleName() + "()$0";
+                }
+            } else {
+                var allReturnVoid = true;
+                for (var m : methods) {
+                    allReturnVoid = allReturnVoid && m.getReturnType().getKind() == TypeKind.VOID;
+                }
+                if (addSemi && allReturnVoid) {
+                    i.insertText = first.getSimpleName() + "($0);";
+                } else {
+                    i.insertText = first.getSimpleName() + "($0)";
+                }
+                // Activate signatureHelp
+                i.command = new Command();
+                i.command.command = "editor.action.triggerParameterHints";
+            }
+            i.insertTextFormat = 2; // Snippet
+        } else {
+            i.insertText = first.getSimpleName().toString();
+        }
         // Save pointer for method and class doc resultion
         var ptr = new Ptr(first);
         i.data = new JsonPrimitive(ptr.toString());
         return i;
-    }
-
-    private void addParens(List<ExecutableElement> methods, CompletionItem i) {
-        var first = methods.get(0);
-        // Try to be as helpful as possible with insertText
-        if (methods.size() == 1 && first.getParameters().isEmpty()) {
-            i.insertText = first.getSimpleName() + "()$0";
-        } else {
-            i.insertText = first.getSimpleName() + "($0)";
-            // Activate signatureHelp
-            i.command = new Command();
-            i.command.command = "editor.action.triggerParameterHints";
-        }
-        i.insertTextFormat = 2; // Snippet
     }
 
     private String methodLabel(ExecutableElement method) {

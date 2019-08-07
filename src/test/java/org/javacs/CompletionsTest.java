@@ -887,7 +887,7 @@ public class CompletionsTest extends CompletionsBase {
     @Test
     public void completeParens() {
         var inserts = insertText("/org/javacs/example/CompleteParens.java", 5, 12);
-        assertThat(inserts, hasItem("returnsVoid()$0"));
+        assertThat(inserts, hasItem("returnsVoid();$0"));
         assertThat(inserts, hasItem("returnsString()$0"));
         assertThat(inserts, hasItem("returnsArg($0)"));
     }

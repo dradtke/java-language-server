@@ -206,6 +206,14 @@ class Parser {
         return range(task, contents, path).map(range -> new Location(uri, range));
     }
 
+    private String restOfLine(int cursor) {
+        var endOfLine = contents.indexOf('\n', cursor);
+        if (endOfLine == -1) {
+            return contents.substring(cursor);
+        }
+        return contents.substring(cursor, endOfLine);
+    }
+
     CompletionContext completionContext(int line, int character) {
         LOG.info(
                 String.format(
@@ -215,8 +223,10 @@ class Parser {
         var trees = Trees.instance(task);
         var pos = trees.getSourcePositions();
         var lines = root.getLineMap();
-        var cursor = lines.getPosition(line, character);
-        var addParens = !(contents.length() > cursor && contents.charAt((int) cursor) == '(');
+        var cursor = (int) lines.getPosition(line, character);
+        var addParens = !(contents.length() > cursor && contents.charAt(cursor) == '(');
+        var afterCursor = restOfLine(cursor);
+        var addSemi = afterCursor.matches("\\s*");
 
         class FindCompletionPosition extends TreeScanner<Void, Void> {
             CompletionContext result = null;
@@ -260,7 +270,8 @@ class Parser {
                                     insideMethod > 0,
                                     CompletionContext.Kind.MemberSelect,
                                     partialName,
-                                    addParens);
+                                    addParens,
+                                    addSemi);
                 }
                 return null;
             }
@@ -282,7 +293,8 @@ class Parser {
                                     insideMethod > 0,
                                     CompletionContext.Kind.MemberReference,
                                     partialName,
-                                    addParens);
+                                    addParens,
+                                    addSemi);
                 }
                 return null;
             }
@@ -307,7 +319,8 @@ class Parser {
                                     insideMethod > 0,
                                     CompletionContext.Kind.Case,
                                     partialName,
-                                    addParens);
+                                    addParens,
+                                    addSemi);
                 } else {
                     super.visitCase(node, nothing);
                 }
@@ -329,7 +342,8 @@ class Parser {
                                     insideMethod > 0,
                                     CompletionContext.Kind.Identifier,
                                     partialName,
-                                    addParens);
+                                    addParens,
+                                    addSemi);
                 }
                 return null;
             }
@@ -348,7 +362,8 @@ class Parser {
                                     insideMethod > 0,
                                     CompletionContext.Kind.Annotation,
                                     partialName,
-                                    addParens);
+                                    addParens,
+                                    addSemi);
                 } else {
                     super.visitAnnotation(node, nothing);
                 }
@@ -1298,14 +1313,14 @@ class Parser {
 }
 
 class CompletionContext {
-    static final CompletionContext UNKNOWN = new CompletionContext(-1, -1, false, false, null, null, false);
+    static final CompletionContext UNKNOWN = new CompletionContext(-1, -1, false, false, null, null, false, false);
 
     // 1-based
     final int line, character;
     final boolean inClass, inMethod;
     final Kind kind;
     final String partialName;
-    final boolean addParens;
+    final boolean addParens, addSemi;
 
     CompletionContext(
             int line,
@@ -1314,7 +1329,8 @@ class CompletionContext {
             boolean inMethod,
             Kind kind,
             String partialName,
-            boolean addParens) {
+            boolean addParens,
+            boolean addSemi) {
         this.line = line;
         this.character = character;
         this.inClass = inClass;
@@ -1322,6 +1338,7 @@ class CompletionContext {
         this.kind = kind;
         this.partialName = partialName;
         this.addParens = addParens;
+        this.addSemi = addSemi;
     }
 
     enum Kind {

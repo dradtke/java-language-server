@@ -233,7 +233,7 @@ class JavaLanguageServer extends LanguageServer {
             // Do a specific type of completion
             switch (ctx.kind) {
                 case MemberSelect:
-                    cs = focus.completeMembers(uri, ctx.line, ctx.character, ctx.addParens);
+                    cs = focus.completeMembers(uri, ctx.line, ctx.character, ctx.addParens, ctx.addSemi);
                     isIncomplete = false;
                     break;
                 case MemberReference:
@@ -249,7 +249,8 @@ class JavaLanguageServer extends LanguageServer {
                                     ctx.inClass,
                                     ctx.inMethod,
                                     ctx.partialName,
-                                    ctx.addParens);
+                                    ctx.addParens,
+                                    ctx.addSemi);
                     isIncomplete = cs.size() >= CompileBatch.MAX_COMPLETION_ITEMS;
                     break;
                 case Annotation:
