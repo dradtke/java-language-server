@@ -8,7 +8,7 @@ import java.util.Objects;
 
 /** Cache maps a file + an arbitrary key to a value. When the file is modified, the mapping expires. */
 class Cache<K, V> {
-    private class Key {
+    private static class Key<K> {
         final Path file;
         final K key;
 
@@ -19,8 +19,8 @@ class Cache<K, V> {
 
         @Override
         public boolean equals(Object other) {
-            if (other.getClass() != Key.class) return false;
-            var that = (Key) other;
+            if (other.getClass() != Cache.Key.class) return false;
+            var that = (Cache.Key) other;
             return Objects.equals(this.key, that.key) && Objects.equals(this.file, that.file);
         }
 
@@ -47,7 +47,7 @@ class Cache<K, V> {
 
     boolean needs(Path file, K k) {
         // If key is not in map, it needs to be loaded
-        var key = new Key(file, k);
+        var key = new Key<K>(file, k);
         if (!map.containsKey(key)) return true;
 
         // If key was loaded before file was last modified, it needs to be reloaded
@@ -59,13 +59,13 @@ class Cache<K, V> {
 
     void load(Path file, K k, V v) {
         // TODO limit total size of cache
-        var key = new Key(file, k);
+        var key = new Key<K>(file, k);
         var value = new Value(v);
         map.put(key, value);
     }
 
     V get(Path file, K k) {
-        var key = new Key(file, k);
+        var key = new Key<K>(file, k);
         if (!map.containsKey(key)) {
             throw new IllegalArgumentException(k + " is not in map " + map);
         }
