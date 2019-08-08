@@ -127,37 +127,13 @@
 			"patterns": [
 				{
 					"begin": "/\\*",
-					"captures": {
-						"0": {
-							"name": "punctuation.definition.comment"
-						}
-					},
 					"end": "\\*/",
 					"name": "comment.block"
 				},
 				{
-					"begin": "(//) *(TODO)",
-					"end": "$",
-					"contentName": "punctuation.definition.tag",
-					"beginCaptures": {
-						"1": {
-							"name": "punctuation.definition.tag"
-						},
-						"2": {
-							"name": "comment.block",
-							"patterns": [
-								{
-									"match": "TODO",
-									"name": "markup.italic"
-								}
-							]
-						}
-					}
-				},
-				{
 					"begin": "//",
 					"end": "$",
-					"name": "punctuation.definition.tag"
+					"name": "comment.line"
 				}
 			]
 		},
