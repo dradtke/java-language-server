@@ -133,15 +133,13 @@ class JavaCompilerService {
                 warmPackages.add(pkg);
             }
         }
-        if (!needsCompile.isEmpty()) {
-            LOG.info(
-                    "...compile "
-                            + needsCompile.size()
-                            + " files that contain package-private classes in new packages");
-            // TODO consider pruning each source to speed up compile times
-            var batch = compilePaths(needsCompile);
-            batch.close();
+        if (needsCompile.isEmpty()) {
+            return;
         }
+        // TODO consider pruning each source to speed up compile times
+        LOG.info(String.format("...compile %d files that contain package-private classes", needsCompile.size()));
+        var batch = compilePaths(needsCompile);
+        batch.close();
     }
 
     private boolean containsPackagePrivateClass(Path file) {
@@ -166,7 +164,9 @@ class JavaCompilerService {
             var symbols = parse.findSymbolsMatching(query);
             parsed++;
             // If we confirm matches, add them to the results
-            if (symbols.size() > 0) LOG.info(String.format("...found %d occurrences", symbols.size()));
+            if (symbols.size() > 0) {
+                LOG.info(String.format("...found %d occurrences", symbols.size()));
+            }
             result.addAll(symbols);
             // If results are full, stop
             if (result.size() >= limit) break;

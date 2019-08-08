@@ -1,10 +1,7 @@
 package org.javacs;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -12,7 +9,6 @@ import java.nio.file.Paths;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -160,18 +156,18 @@ class InferConfig {
 
     static Set<Path> mvnDependencies(Path pomXml, String goal) {
         Objects.requireNonNull(pomXml, "pom.xml path is null");
-
         try {
             // TODO consider using mvn valide dependency:copy-dependencies -DoutputDirectory=??? instead
             // Run maven as a subprocess
-            var command =
-                    List.of(
-                            getMvnCommand(),
-                            "--batch-mode", // Turns off ANSI control sequences
-                            "validate",
-                            goal,
-                            "-DincludeScope=test",
-                            "-DoutputAbsoluteArtifactFilename=true");
+            String[] command = {
+                getMvnCommand(),
+                "--batch-mode", // Turns off ANSI control sequences
+                "validate",
+                goal,
+                "-DincludeScope=test",
+                "-DoutputAbsoluteArtifactFilename=true",
+            };
+            var output = Files.createTempFile("java-language-server-maven-output", ".txt");
             LOG.info("Running " + String.join(" ", command) + " ...");
             var workingDirectory = pomXml.toAbsolutePath().getParent().toFile();
             var process =
@@ -179,55 +175,39 @@ class InferConfig {
                             .command(command)
                             .directory(workingDirectory)
                             .redirectError(ProcessBuilder.Redirect.INHERIT)
-                            .redirectOutput(ProcessBuilder.Redirect.PIPE)
+                            .redirectOutput(output.toFile())
                             .start();
-
-            // Read output on a separate thread
-            var reader =
-                    new Runnable() {
-                        Set<Path> dependencies;
-
-                        @Override
-                        public void run() {
-                            dependencies = readDependencyList(process.getInputStream());
-                        }
-                    };
-            var thread = new Thread(reader, "ReadMavenOutput");
-            thread.start();
-
             // Wait for process to exit
             var result = process.waitFor();
-            if (result != 0) throw new RuntimeException("`" + String.join(" ", command) + "` returned " + result);
-
-            // Wait for thread to finish
-            thread.join();
-            return reader.dependencies;
-        } catch (InterruptedException | IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private static Set<Path> readDependencyList(InputStream stdout) {
-        try (var in = new BufferedReader(new InputStreamReader(stdout))) {
-            var paths = new HashSet<Path>();
-            for (var line = in.readLine(); line != null; line = in.readLine()) {
-                readDependency(line).ifPresent(paths::add);
+            if (result != 0) {
+                LOG.severe("`" + String.join(" ", command) + "` returned " + result);
+                return Set.of();
             }
-            return paths;
-        } catch (IOException e) {
+            // Read output
+            var dependencies = new HashSet<Path>();
+            for (var line : Files.readAllLines(output)) {
+                var jar = readDependency(line);
+                if (jar != NOT_FOUND) {
+                    dependencies.add(jar);
+                }
+            }
+            return dependencies;
+        } catch (InterruptedException | IOException e) {
             throw new RuntimeException(e);
         }
     }
 
     private static final Pattern DEPENDENCY = Pattern.compile("^\\[INFO\\]\\s+(.*:.*:.*:.*:.*):(/.*)$");
 
-    static Optional<Path> readDependency(String line) {
+    static Path readDependency(String line) {
         var match = DEPENDENCY.matcher(line);
-        if (!match.matches()) return Optional.empty();
+        if (!match.matches()) {
+            return NOT_FOUND;
+        }
         var artifact = match.group(1);
         var path = match.group(2);
-        LOG.info(String.format("...artifact %s is at %s", artifact, path));
-        return Optional.of(Paths.get(path));
+        LOG.info(String.format("...%s => %s", artifact, path));
+        return Paths.get(path);
     }
 
     static String getMvnCommand() {
@@ -262,6 +242,7 @@ class InferConfig {
             var query = "labels(" + labelsFilter + ", deps(...))";
             String[] command = {"bazel", "query", query, "--output", "location"};
             var output = Files.createTempFile("java-language-server-bazel-output", ".txt");
+            LOG.info("Running " + String.join(" ", command) + " ...");
             var process =
                     new ProcessBuilder()
                             .command(command)
