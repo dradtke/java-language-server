@@ -78,11 +78,9 @@ public class InferConfigTest {
     public void parseDependencyLine() {
         var line =
                 "[INFO]    org.openjdk.jmh:jmh-generator-annprocess:jar:1.21:provided:/Users/georgefraser/.m2/repository/org/openjdk/jmh/jmh-generator-annprocess/1.21/jmh-generator-annprocess-1.21.jar";
-        var path = InferConfig.readDependency(line).get();
-        assertThat(
-                path,
-                equalTo(
-                        Paths.get(
-                                "/Users/georgefraser/.m2/repository/org/openjdk/jmh/jmh-generator-annprocess/1.21/jmh-generator-annprocess-1.21.jar")));
+        var expect =
+                "/Users/georgefraser/.m2/repository/org/openjdk/jmh/jmh-generator-annprocess/1.21/jmh-generator-annprocess-1.21.jar";
+        var path = InferConfig.readDependency(line);
+        assertThat(path, equalTo(Paths.get(expect)));
     }
 }
