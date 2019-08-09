@@ -614,7 +614,7 @@ class CompileBatch implements AutoCloseable {
             }
         }
         // Add identifiers
-        completeScopeIdentifiers(uri, line, character, partialName, addParens, addSemi, result);
+        completeScopeIdentifiers(uri, line, character, partialName, addParens, addSemi);
         // Add keywords
         if (!insideClass) {
             addKeywords(TOP_LEVEL_KEYWORDS, partialName, result);
@@ -648,7 +648,7 @@ class CompileBatch implements AutoCloseable {
         }
         // Add @Override, @Test, other simple class names
         // We use 0 as the column number because if we focus javac on the partial @Annotation it will crash
-        completeScopeIdentifiers(uri, line, 0, partialName, false, false, result);
+        completeScopeIdentifiers(uri, line, 0, partialName, false, false);
         return result;
     }
 
@@ -656,14 +656,12 @@ class CompileBatch implements AutoCloseable {
     List<CompletionItem> completeCases(URI uri, int line, int character) {
         var cursor = findPath(uri, line, character);
         LOG.info(String.format("Complete enum constants following `%s`...", cursor.getLeaf()));
-
         // Find surrounding switch
         var path = cursor;
         while (!(path.getLeaf() instanceof SwitchTree)) path = path.getParentPath();
         var leaf = (SwitchTree) path.getLeaf();
         path = new TreePath(path, leaf.getExpression());
         LOG.info(String.format("...found switch expression `%s`", leaf.getExpression()));
-
         // Get members of switched type
         var type = trees.getTypeMirror(path);
         if (type == null) {
@@ -1118,9 +1116,11 @@ class CompileBatch implements AutoCloseable {
     }
 
     private boolean tooManyItems(int count) {
-        var test = count >= MAX_COMPLETION_ITEMS;
-        if (test) LOG.warning(String.format("...# of items %d reached max %s", count, MAX_COMPLETION_ITEMS));
-        return test;
+        if (count >= MAX_COMPLETION_ITEMS) {
+            LOG.warning(String.format("...# of items %d reached max %s", count, MAX_COMPLETION_ITEMS));
+            return true;
+        }
+        return false;
     }
 
     private Set<String> subPackages(String parentPackage) {
@@ -1149,25 +1149,18 @@ class CompileBatch implements AutoCloseable {
         }
     }
 
-    private void completeScopeIdentifiers(
-            URI uri,
-            int line,
-            int character,
-            String partialName,
-            boolean addParens,
-            boolean addSemi,
-            List<CompletionItem> result) {
+    private List<CompletionItem> completeScopeIdentifiers(
+            URI uri, int line, int character, String partialName, boolean addParens, boolean addSemi) {
+        var result = new ArrayList<CompletionItem>();
         var root = root(uri);
         // Add locals
         var locals = scopeMembers(uri, line, character, partialName);
         result.addAll(groupByOverload(locals, addParens, addSemi));
         LOG.info(String.format("...found %d locals", locals.size()));
-
         // Add static imports
         var staticImports = staticImports(uri, partialName);
         result.addAll(groupByOverload(staticImports, addParens, addSemi));
         LOG.info(String.format("...found %d static imports", staticImports.size()));
-
         // Add classes
         var startsWithUpperCase = partialName.length() > 0 && Character.isUpperCase(partialName.charAt(0));
         if (startsWithUpperCase) {
@@ -1177,33 +1170,30 @@ class CompileBatch implements AutoCloseable {
                         var className = StringSearch.lastName(qualifiedName);
                         return StringSearch.matchesPartialName(className, partialName);
                     };
-
             // Check JDK
             LOG.info("...checking JDK");
             for (var c : parent.jdkClasses) {
-                if (tooManyItems(result.size())) return;
+                if (tooManyItems(result.size())) return result;
                 if (!matchesPartialName.test(c)) continue;
                 if (isSamePackage(c, packageName) || isPublicClassFile(c)) {
                     result.add(classNameCompletion(c, isImported(uri, c)));
                 }
             }
-
             // Check classpath
             LOG.info("...checking classpath");
             var classPathNames = new HashSet<String>();
             for (var c : parent.classPathClasses) {
-                if (tooManyItems(result.size())) return;
+                if (tooManyItems(result.size())) return result;
                 if (!matchesPartialName.test(c)) continue;
                 if (isSamePackage(c, packageName) || isPublicClassFile(c)) {
                     result.add(classNameCompletion(c, isImported(uri, c)));
                     classPathNames.add(c);
                 }
             }
-
             // Check sourcepath
             LOG.info("...checking source path");
             for (var file : FileStore.all()) {
-                if (tooManyItems(result.size())) return;
+                if (tooManyItems(result.size())) return result;
                 // If file is in the same package, any class defined in the file is accessible
                 var otherPackageName = FileStore.packageName(file);
                 var samePackage = otherPackageName.equals(packageName) || otherPackageName.isEmpty();
@@ -1214,6 +1204,7 @@ class CompileBatch implements AutoCloseable {
                 }
             }
         }
+        return result;
     }
 
     private boolean isSamePackage(String className, String fromPackage) {
