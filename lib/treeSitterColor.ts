@@ -81,7 +81,8 @@ export function colorJava(root: Parser.SyntaxNode, visibleRanges: { start: numbe
 					parent == 'lambda_expression' && cursor.currentFieldName() == 'parameters' ||
 					parent == 'formal_parameter' && cursor.currentFieldName() == 'name' ||
 					parent == 'variable_declarator' && cursor.currentFieldName() == 'name' ||
-					parent == 'enhanced_for_statement' && cursor.currentFieldName() == 'name';
+					parent == 'enhanced_for_statement' && cursor.currentFieldName() == 'name' ||
+					parent == 'catch_formal_parameter' && cursor.currentFieldName() == 'name';
 				if (isParam) {
 					scope.declare(cursor.currentNode().text);
 				}
@@ -157,6 +158,7 @@ function createsScope(nodeType: string) {
 		case 'block':
 		case 'lambda_expression':
 		case 'enhanced_for_statement':
+		case 'catch_clause':
 			return true;
 		default:
 			return false;
@@ -171,6 +173,7 @@ function createsLocalScope(nodeType: string) {
 		case 'block':
 		case 'lambda_expression':
 		case 'enhanced_for_statement':
+		case 'catch_clause':
 			return true;
 		default:
 			throw new Error(nodeType + ' does not create a scope');
