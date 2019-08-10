@@ -1402,6 +1402,7 @@ class CompileBatch implements AutoCloseable {
                     i.insertText = first.getSimpleName() + "($0)";
                 }
                 // Activate signatureHelp
+                // Remove this if VSCode ever fixes https://github.com/microsoft/vscode/issues/78806
                 i.command = new Command();
                 i.command.command = "editor.action.triggerParameterHints";
             }

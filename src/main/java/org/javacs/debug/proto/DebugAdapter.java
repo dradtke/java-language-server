@@ -500,7 +500,7 @@ public class DebugAdapter {
         }
     }
 
-    static class EndOfStream extends RuntimeException {}
+    private static class EndOfStream extends RuntimeException {}
 
     private static final Logger LOG = Logger.getLogger("debug");
 }

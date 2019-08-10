@@ -72,7 +72,7 @@ public class JavaDebugServer implements DebugServer {
                 var prepare = (ClassPrepareEvent) event;
                 var type = prepare.referenceType();
                 LOG.info("ClassPrepareRequest for class " + type.name() + " in source " + path(type));
-                enableBreakpointsInClass(type);
+                enablePendingBreakpointsIn(type);
                 vm.resume();
             } else if (event instanceof com.sun.jdi.event.BreakpointEvent) {
                 var breakpoint = (com.sun.jdi.event.BreakpointEvent) event;
@@ -101,11 +101,13 @@ public class JavaDebugServer implements DebugServer {
     public JavaDebugServer(DebugClient client) {
         this.client = client;
         class LogToConsole extends Handler {
+            private final LogFormat format = new LogFormat();
+
             @Override
             public void publish(LogRecord r) {
                 var evt = new OutputEventBody();
                 evt.category = "console";
-                evt.output = r.getSourceClassName() + "\t" + r.getSourceMethodName() + "\t" + r.getMessage() + "\n";
+                evt.output = format.format(r);
                 client.output(evt);
             }
 
@@ -127,23 +129,71 @@ public class JavaDebugServer implements DebugServer {
 
     @Override
     public SetBreakpointsResponseBody setBreakpoints(SetBreakpointsArguments req) {
+        LOG.info("Received " + req.breakpoints.length + " breakpoints");
         // Add these breakpoints to the pending set
         var resp = new SetBreakpointsResponseBody();
         resp.breakpoints = new Breakpoint[req.breakpoints.length];
         for (var i = 0; i < req.breakpoints.length; i++) {
-            var breakpoint = req.breakpoints[i];
-            var pending = new Breakpoint();
-            pending.id = breakPointCounter++;
-            pending.source = new Source();
-            pending.source.path = req.source.path;
-            pending.line = breakpoint.line;
-            pending.column = breakpoint.column;
-            pending.verified = false;
-            pending.message = "Class not yet loaded";
-            resp.breakpoints[i] = pending;
-            pendingBreakpoints.add(pending);
+            resp.breakpoints[i] = tryEnableBreakpoint(req.source, req.breakpoints[i]);
         }
         return resp;
+    }
+
+    private Breakpoint tryEnableBreakpoint(Source source, SourceBreakpoint breakpoint) {
+        // Check for breakpoint in loaded classes
+        for (var type : vm.allClasses()) {
+            var path = path(type);
+            if (path != null && source.path.endsWith(path)) {
+                return enableBreakpointImmediately(source, breakpoint, type);
+            }
+        }
+        // If class hasn't been loaded, add breakpoint to pending list
+        LOG.info(String.format("Enable %s:%d later", source.path, breakpoint.line));
+        var pending = new Breakpoint();
+        pending.id = breakPointCounter++;
+        pending.source = new Source();
+        pending.source.path = source.path;
+        pending.line = breakpoint.line;
+        pending.column = breakpoint.column;
+        pending.verified = false;
+        pending.message = source.name + " is not yet loaded";
+        pendingBreakpoints.add(pending);
+        return pending;
+    }
+
+    private Breakpoint enableBreakpointImmediately(Source source, SourceBreakpoint breakpoint, ReferenceType type) {
+        try {
+            var locations = type.locationsOfLine(breakpoint.line);
+            for (var line : locations) {
+                LOG.info(
+                        String.format(
+                                "Create breakpoint %s:%d for %s:%d",
+                                line.sourcePath(), line.lineNumber(), source.path, breakpoint.line));
+                var req = vm.eventRequestManager().createBreakpointRequest(line);
+                req.setSuspendPolicy(EventRequest.SUSPEND_ALL);
+                req.enable();
+            }
+            if (locations.isEmpty()) {
+                LOG.info(
+                        String.format(
+                                "No locations in %s for breakpoint %s:%d", path(type), source.path, breakpoint.line));
+                var failed = new Breakpoint();
+                failed.verified = false;
+                failed.message = source.name + ":" + breakpoint.line + " could not be found or had no code on it";
+                return failed;
+            }
+            var ok = new Breakpoint();
+            ok.verified = true;
+            ok.source = source;
+            ok.line = breakpoint.line;
+            ok.column = breakpoint.column;
+            return ok;
+        } catch (AbsentInformationException __) {
+            var failed = new Breakpoint();
+            failed.verified = false;
+            failed.message = source.name + ":" + breakpoint.line + " could not be found or had no code on it";
+            return failed;
+        }
     }
 
     @Override
@@ -162,6 +212,18 @@ public class JavaDebugServer implements DebugServer {
         listenForClassPrepareEvents();
         enablePendingBreakpointsInLoadedClasses();
         vm.resume();
+    }
+
+    /* Request to be notified when files with pending breakpoints are loaded */
+    private void listenForClassPrepareEvents() {
+        Objects.requireNonNull(vm, "vm has not been initialized");
+        for (var name : distinctSourceNames()) {
+            LOG.info("Listen for ClassPrepareRequest in " + name);
+            var requestClassEvent = vm.eventRequestManager().createClassPrepareRequest();
+            requestClassEvent.addSourceNameFilter("*" + name);
+            requestClassEvent.setSuspendPolicy(EventRequest.SUSPEND_ALL);
+            requestClassEvent.enable();
+        }
     }
 
     @Override
@@ -240,13 +302,14 @@ public class JavaDebugServer implements DebugServer {
         var paths = distinctSourceNames();
         for (var type : vm.allClasses()) {
             var path = path(type);
+            // TODO isn't this ends-with??
             if (paths.contains(path)) {
-                enableBreakpointsInClass(type);
+                enablePendingBreakpointsIn(type);
             }
         }
     }
 
-    private void enableBreakpointsInClass(ReferenceType type) {
+    private void enablePendingBreakpointsIn(ReferenceType type) {
         // Check that class has source information
         var path = path(type);
         if (path == null) return;
@@ -254,14 +317,14 @@ public class JavaDebugServer implements DebugServer {
         var enabled = new ArrayList<Breakpoint>();
         for (var b : pendingBreakpoints) {
             if (b.source.path.endsWith(path)) {
-                enableBreakpoint(b, type);
+                enablePendingBreakpoint(b, type);
                 enabled.add(b);
             }
         }
         pendingBreakpoints.removeAll(enabled);
     }
 
-    private void enableBreakpoint(Breakpoint b, ReferenceType type) {
+    private void enablePendingBreakpoint(Breakpoint b, ReferenceType type) {
         LOG.info("Enable breakpoint at " + b.source.path + ":" + b.line);
         try {
             var locations = type.locationsOfLine(b.line);
@@ -272,21 +335,26 @@ public class JavaDebugServer implements DebugServer {
             }
             if (locations.isEmpty()) {
                 var failed = new BreakpointEventBody();
-                failed.reason = "changed";
+                failed.reason = "no code";
                 failed.breakpoint = b;
                 b.verified = false;
                 b.message = b.source.name + ":" + b.line + " could not be found or had no code on it";
                 client.breakpoint(failed);
-            } else {
-                var ok = new BreakpointEventBody();
-                ok.reason = "changed";
-                ok.breakpoint = b;
-                b.verified = true;
-                b.message = null;
-                client.breakpoint(ok);
+                return;
             }
-        } catch (AbsentInformationException e) {
-            throw new RuntimeException(e);
+            var ok = new BreakpointEventBody();
+            ok.reason = "class loaded";
+            ok.breakpoint = b;
+            b.verified = true;
+            b.message = null;
+            client.breakpoint(ok);
+        } catch (AbsentInformationException __) {
+            var failed = new BreakpointEventBody();
+            failed.reason = "no code";
+            failed.breakpoint = b;
+            b.verified = false;
+            b.message = b.source.name + ":" + b.line + " could not be found or had no code on it";
+            client.breakpoint(failed);
         }
     }
 
@@ -298,18 +366,6 @@ public class JavaDebugServer implements DebugServer {
             return null;
         } catch (AbsentInformationException __) {
             return null;
-        }
-    }
-
-    /* Request to be notified when files with pending breakpoints are loaded */
-    private void listenForClassPrepareEvents() {
-        Objects.requireNonNull(vm, "vm has not been initialized");
-        for (var name : distinctSourceNames()) {
-            LOG.info("Listen for ClassPrepareRequest in " + name);
-            var requestClassEvent = vm.eventRequestManager().createClassPrepareRequest();
-            requestClassEvent.addSourceNameFilter("*" + name);
-            requestClassEvent.setSuspendPolicy(EventRequest.SUSPEND_ALL);
-            requestClassEvent.enable();
         }
     }
 
@@ -447,21 +503,19 @@ public class JavaDebugServer implements DebugServer {
             src.name = l.sourceName();
             src.path = Objects.toString(path, null);
             return src;
-        } catch (AbsentInformationException e) {
-            throw new RuntimeException(e);
+        } catch (AbsentInformationException __) {
+            var src = new Source();
+            src.path = path(l.declaringType());
+            src.name = l.declaringType().name();
+            src.presentationHint = "deemphasize";
+            return src;
         }
     }
 
     private static final Set<String> warnedCouldNotFind = new HashSet<>();
 
-    private Path findSource(Location l) {
-        String relative;
-        try {
-            relative = l.sourcePath();
-        } catch (AbsentInformationException __) {
-            LOG.warning(l + " has no location information");
-            return null;
-        }
+    private Path findSource(Location l) throws AbsentInformationException {
+        var relative = l.sourcePath();
         for (var root : sourceRoots) {
             var absolute = root.resolve(relative);
             if (Files.exists(absolute)) {
@@ -569,14 +623,7 @@ public class JavaDebugServer implements DebugServer {
         try {
             return frame.visibleVariables();
         } catch (AbsentInformationException __) {
-            try {
-                LOG.warning(
-                        String.format(
-                                "No visible variable information in %s:%d",
-                                frame.location().sourceName(), frame.location().lineNumber()));
-            } catch (AbsentInformationException _again) { // TODO this should not warn
-                LOG.warning(String.format("No visible variable information in %s", frame.toString()));
-            }
+            LOG.warning(String.format("No visible variable information in %s", frame.location()));
             return List.of();
         }
     }

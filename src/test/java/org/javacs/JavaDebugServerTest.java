@@ -163,5 +163,22 @@ public class JavaDebugServerTest {
         process.waitFor();
     }
 
+    @Test
+    public void addBreakpoint() throws InterruptedException {
+        // Attach to the process
+        attach(5005);
+        // Stop at 4
+        setBreakpoint(4);
+        server.configurationDone();
+        stoppedEvents.take();
+        // Stop at 6
+        setBreakpoint(6);
+        server.continue_(new ContinueArguments());
+        stoppedEvents.take();
+        // Wait for process to exit
+        server.continue_(new ContinueArguments());
+        process.waitFor();
+    }
+
     private static final Logger LOG = Logger.getLogger("main");
 }
