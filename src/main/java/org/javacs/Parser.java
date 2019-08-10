@@ -571,7 +571,7 @@ class Parser {
 
             // Find position of class name
             var name = cls.getSimpleName().toString();
-            start = contents.indexOf(name, start);
+            start = indexOf(contents, name, start);
             if (start == -1) {
                 LOG.warning(String.format("Couldn't find identifier `%s` in `%s`", name, path.getLeaf()));
                 return Optional.empty();
@@ -590,7 +590,7 @@ class Parser {
             if (name.equals("<init>")) {
                 name = className(path);
             }
-            start = contents.indexOf(name, start);
+            start = indexOf(contents, name, start);
             if (start == -1) {
                 LOG.warning(String.format("Couldn't find identifier `%s` in `%s`", name, path.getLeaf()));
                 return Optional.empty();
@@ -606,7 +606,7 @@ class Parser {
 
             // Find position of method name
             var name = field.getName().toString();
-            start = contents.indexOf(name, start);
+            start = indexOf(contents, name, start);
             if (start == -1) {
                 LOG.warning(String.format("Couldn't find identifier `%s` in `%s`", name, path.getLeaf()));
                 return Optional.empty();
@@ -616,7 +616,7 @@ class Parser {
         if (path.getLeaf() instanceof MemberSelectTree) {
             var member = (MemberSelectTree) path.getLeaf();
             var name = member.getIdentifier().toString();
-            start = contents.indexOf(name, start);
+            start = indexOf(contents, name, start);
             if (start == -1) {
                 LOG.warning(String.format("Couldn't find identifier `%s` in `%s`", name, path.getLeaf()));
                 return Optional.empty();
@@ -630,6 +630,14 @@ class Parser {
         var range = new Range(new Position(startLine - 1, startCol - 1), new Position(endLine - 1, endCol - 1));
 
         return Optional.of(range);
+    }
+
+    private static int indexOf(String contents, String name, int start) {
+        var matcher = Pattern.compile("\\b" + name + "\\b").matcher(contents);
+        if (matcher.find(start)) {
+            return matcher.start();
+        }
+        return -1;
     }
 
     List<SymbolInformation> documentSymbols() {

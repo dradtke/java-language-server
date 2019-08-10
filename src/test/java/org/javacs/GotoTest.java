@@ -174,6 +174,13 @@ public class GotoTest {
     }
 
     @Test
+    public void gotoSingleChar() {
+        String file = "/org/javacs/example/GotoSingleChar.java";
+
+        assertThat(doGoto(file, 6, 28, true), hasItem("GotoSingleChar.java:5,16"));
+    }
+
+    @Test
     public void packagePrivate() {
         // There is a separate bug where javac doesn't find package-private classes in files with different names.
         // This is tested in WarningsTest#referencePackagePrivateClassInFileWithDifferentName
@@ -187,6 +194,10 @@ public class GotoTest {
     private static final JavaLanguageServer server = LanguageServerFixture.getJavaLanguageServer();
 
     private List<String> doGoto(String file, int row, int column) {
+        return doGoto(file, row, column, false);
+    }
+
+    private List<String> doGoto(String file, int row, int column, boolean includeColumn) {
         TextDocumentIdentifier document = new TextDocumentIdentifier();
 
         document.uri = FindResource.uri(file);
@@ -206,7 +217,11 @@ public class GotoTest {
         for (var l : locations) {
             var fileName = Paths.get(l.uri).getFileName();
             var start = l.range.start;
-            strings.add(String.format("%s:%d", fileName, start.line + 1));
+            if (includeColumn) {
+                strings.add(String.format("%s:%d,%d", fileName, start.line + 1, start.character + 1));
+            } else {
+                strings.add(String.format("%s:%d", fileName, start.line + 1));
+            }
         }
         return strings;
     }
