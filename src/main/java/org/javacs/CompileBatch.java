@@ -614,7 +614,8 @@ class CompileBatch implements AutoCloseable {
             }
         }
         // Add identifiers
-        completeScopeIdentifiers(uri, line, character, partialName, addParens, addSemi);
+        var inScope = completeScopeIdentifiers(uri, line, character, partialName, addParens, addSemi);
+        result.addAll(inScope);
         // Add keywords
         if (!insideClass) {
             addKeywords(TOP_LEVEL_KEYWORDS, partialName, result);
@@ -648,7 +649,8 @@ class CompileBatch implements AutoCloseable {
         }
         // Add @Override, @Test, other simple class names
         // We use 0 as the column number because if we focus javac on the partial @Annotation it will crash
-        completeScopeIdentifiers(uri, line, 0, partialName, false, false);
+        var inScope = completeScopeIdentifiers(uri, line, 0, partialName, false, false);
+        result.addAll(inScope);
         return result;
     }
 
