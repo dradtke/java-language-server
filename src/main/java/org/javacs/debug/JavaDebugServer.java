@@ -217,7 +217,15 @@ public class JavaDebugServer implements DebugServer {
     /* Request to be notified when files with pending breakpoints are loaded */
     private void listenForClassPrepareEvents() {
         Objects.requireNonNull(vm, "vm has not been initialized");
-        for (var name : distinctSourceNames()) {
+        // Get all file names
+        var distinctSourceNames = new HashSet<String>();
+        for (var b : pendingBreakpoints) {
+            var path = Paths.get(b.source.path);
+            var name = path.getFileName();
+            distinctSourceNames.add(name.toString());
+        }
+        // Listen for classes with those names
+        for (var name : distinctSourceNames) {
             LOG.info("Listen for ClassPrepareRequest in " + name);
             var requestClassEvent = vm.eventRequestManager().createClassPrepareRequest();
             requestClassEvent.addSourceNameFilter("*" + name);
@@ -299,13 +307,8 @@ public class JavaDebugServer implements DebugServer {
     /* Set breakpoints for already-loaded classes */
     private void enablePendingBreakpointsInLoadedClasses() {
         Objects.requireNonNull(vm, "vm has not been initialized");
-        var paths = distinctSourceNames();
         for (var type : vm.allClasses()) {
-            var path = path(type);
-            // TODO isn't this ends-with??
-            if (paths.contains(path)) {
-                enablePendingBreakpointsIn(type);
-            }
+            enablePendingBreakpointsIn(type);
         }
     }
 
@@ -367,16 +370,6 @@ public class JavaDebugServer implements DebugServer {
         } catch (AbsentInformationException __) {
             return null;
         }
-    }
-
-    private Set<String> distinctSourceNames() {
-        var distinctSourceNames = new HashSet<String>();
-        for (var b : pendingBreakpoints) {
-            var path = Paths.get(b.source.path);
-            var name = path.getFileName();
-            distinctSourceNames.add(name.toString());
-        }
-        return distinctSourceNames;
     }
 
     @Override
