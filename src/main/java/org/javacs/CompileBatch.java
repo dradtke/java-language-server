@@ -680,7 +680,9 @@ class CompileBatch implements AutoCloseable {
         LOG.info(String.format("...switched expression has definition `%s`", definition));
         var result = new ArrayList<CompletionItem>();
         for (var member : definition.getEnclosedElements()) {
-            if (member.getKind() == ElementKind.ENUM_CONSTANT) result.add(elementCompletion(member));
+            if (member.getKind() == ElementKind.ENUM_CONSTANT) {
+                result.add(caseCompletion(member));
+            }
         }
 
         return result;
@@ -696,14 +698,14 @@ class CompileBatch implements AutoCloseable {
             return completePackageMembers(path);
         } else if (element instanceof TypeElement) {
             var members = completeTypeMembers(path);
-            var result = groupByOverload(members, addParens, addSemi);
+            var result = groupByOverload(members, addParens, addSemi, type);
             result.add(keywordCompletion("class"));
             result.add(keywordCompletion("this"));
             result.add(keywordCompletion("super"));
             return result;
         } else {
             var members = completeInstanceMembers(path);
-            var result = groupByOverload(members, addParens, addSemi);
+            var result = groupByOverload(members, addParens, addSemi, type);
             if (type instanceof ArrayType) {
                 result.add(keywordCompletion("length"));
             }
@@ -727,14 +729,14 @@ class CompileBatch implements AutoCloseable {
                 }
             }
             // Form result
-            var result = groupByOverload(methods, false, false);
+            var result = groupByOverload(methods, false, false, t.asType());
             // Add ::new
             result.add(keywordCompletion("new"));
 
             return result;
         } else {
             var members = completeInstanceMembers(path);
-            var result = groupByOverload(members, false, false);
+            var result = groupByOverload(members, false, false, element.asType());
             return result;
         }
     }
@@ -751,11 +753,13 @@ class CompileBatch implements AutoCloseable {
             // If the package member is a TypeElement, like a class or interface, check if it's accessible
             if (member instanceof TypeElement) {
                 if (trees.isAccessible(scope, (TypeElement) member)) {
-                    result.add(elementCompletion(member));
+                    result.add(packageCompletion(member));
                 }
             }
             // Otherwise, just assume it's accessible and add it to the list
-            else result.add(elementCompletion(member));
+            else {
+                result.add(packageCompletion(member));
+            }
         }
         // Add sub-package names resolved as String by guava ClassPath
         var parent = element.getQualifiedName().toString();
@@ -832,7 +836,8 @@ class CompileBatch implements AutoCloseable {
         return result;
     }
 
-    private List<CompletionItem> groupByOverload(List<Element> members, boolean addParens, boolean addSemi) {
+    private List<CompletionItem> groupByOverload(
+            List<Element> members, boolean addParens, boolean addSemi, TypeMirror container) {
         var result = new ArrayList<CompletionItem>();
         var methods = new HashMap<Name, List<ExecutableElement>>();
         for (var member : members) {
@@ -843,12 +848,14 @@ class CompileBatch implements AutoCloseable {
                     methods.put(name, new ArrayList<ExecutableElement>());
                 }
                 methods.get(name).add(method);
-            } else {
-                result.add(elementCompletion(member));
+            } else if (member instanceof VariableElement) {
+                result.add(varCompletion((VariableElement) member, container));
+            } else if (member instanceof TypeElement) {
+                result.add(innerTypeCompletion((TypeElement) member, container));
             }
         }
         for (var overload : methods.values()) {
-            var i = overloadCompletion(overload, addParens, addSemi);
+            var i = methodCompletion(overload, addParens, addSemi, container);
             result.add(i);
         }
         return result;
@@ -1021,11 +1028,7 @@ class CompileBatch implements AutoCloseable {
     }
 
     /** Find all identifiers in scope at line:character */
-    List<Element> scopeMembers(URI uri, int line, int character, String partialName) {
-        var path = findPath(uri, line, character);
-        var types = borrow.task.getTypes();
-        var start = trees.getScope(path);
-
+    private List<Element> scopeMembers(Scope start, String partialName) {
         class Walk {
             List<Element> result = new ArrayList<>();
 
@@ -1156,12 +1159,19 @@ class CompileBatch implements AutoCloseable {
         var result = new ArrayList<CompletionItem>();
         var root = root(uri);
         // Add locals
-        var locals = scopeMembers(uri, line, character, partialName);
-        result.addAll(groupByOverload(locals, addParens, addSemi));
+        var path = findPath(uri, line, character);
+        var scope = trees.getScope(path);
+        if (scope.getEnclosingClass() == null) {
+            LOG.warning(String.format("No enclosing class at %s(%d)", uri, line));
+            return List.of();
+        }
+        var container = scope.getEnclosingClass().asType();
+        var locals = scopeMembers(scope, partialName);
+        result.addAll(groupByOverload(locals, addParens, addSemi, container));
         LOG.info(String.format("...found %d locals", locals.size()));
         // Add static imports
         var staticImports = staticImports(uri, partialName);
-        result.addAll(groupByOverload(staticImports, addParens, addSemi));
+        result.addAll(groupByOverload(staticImports, addParens, addSemi, container));
         LOG.info(String.format("...found %d static imports", staticImports.size()));
         // Add classes
         var startsWithUpperCase = partialName.length() > 0 && Character.isUpperCase(partialName.charAt(0));
@@ -1353,38 +1363,43 @@ class CompileBatch implements AutoCloseable {
         i.kind = CompletionItemKind.Snippet;
         i.insertText = snippet;
         i.insertTextFormat = InsertTextFormat.Snippet;
-        i.sortText = 1 + i.label;
+        i.sortText = String.format("%02d%s", Priority.SNIPPET, i.label);
         return i;
     }
 
-    private CompletionItem elementCompletion(Element e) {
+    private CompletionItem varCompletion(VariableElement e, TypeMirror container) {
         var i = new CompletionItem();
         i.label = e.getSimpleName().toString();
         i.kind = completionItemKind(e);
         i.detail = ShortTypePrinter.DEFAULT.print(e.asType());
-        // TODO prioritize based on usage?
-        // TODO prioritize based on scope
-        if (isMemberOfObject(e)) {
-            i.sortText = 9 + i.label;
-        } else {
-            i.sortText = 2 + i.label;
-        }
-        // Save pointer for method and class doc resultion
-        var ptr = new Ptr(e);
-        i.data = new JsonPrimitive(ptr.toString());
+        i.sortText = String.format("%02d%s", varPriority(e, container), i.label);
+        i.data = new JsonPrimitive(new Ptr(e).toString());
         return i;
     }
 
-    private CompletionItem overloadCompletion(List<ExecutableElement> methods, boolean addParens, boolean addSemi) {
+    private CompletionItem innerTypeCompletion(TypeElement e, TypeMirror container) {
+        var i = new CompletionItem();
+        i.label = e.getSimpleName().toString();
+        i.kind = completionItemKind(e);
+        i.detail = ShortTypePrinter.DEFAULT.print(e.asType());
+        i.sortText = String.format("%02d%s", innerClassPriority(e, container), i.label);
+        i.data = new JsonPrimitive(new Ptr(e).toString());
+        return i;
+    }
+
+    private CompletionItem methodCompletion(
+            List<ExecutableElement> methods, boolean addParens, boolean addSemi, TypeMirror container) {
         var first = methods.get(0);
-        var i = elementCompletion(first);
+        var i = new CompletionItem();
         i.label = methodLabel(first);
-        i.filterText = first.getSimpleName().toString();
+        i.kind = completionItemKind(first);
         // Add (+n overloads)
         if (methods.size() > 1) {
             var overloads = methods.size() - 1;
             i.label += " (+" + overloads + " overloads)";
         }
+        i.filterText = first.getSimpleName().toString();
+        i.sortText = String.format("%02d%s", methodPriority(first, container), first.getSimpleName().toString());
         // Try to be as helpful as possible with insertText
         if (addParens) {
             if (methods.size() == 1 && first.getParameters().isEmpty()) {
@@ -1413,8 +1428,7 @@ class CompileBatch implements AutoCloseable {
             i.insertText = first.getSimpleName().toString();
         }
         // Save pointer for method and class doc resultion
-        var ptr = new Ptr(first);
-        i.data = new JsonPrimitive(ptr.toString());
+        i.data = new JsonPrimitive(new Ptr(first).toString());
         return i;
     }
 
@@ -1465,21 +1479,22 @@ class CompileBatch implements AutoCloseable {
         }
     }
 
-    private boolean isMemberOfObject(Element e) {
-        var parent = e.getEnclosingElement();
-        if (parent instanceof TypeElement) {
-            var type = (TypeElement) parent;
-            return type.getQualifiedName().contentEquals("java.lang.Object");
-        }
-        return false;
-    }
-
     private CompletionItem keywordCompletion(String keyword) {
         var i = new CompletionItem();
         i.label = keyword;
         i.kind = CompletionItemKind.Keyword;
         i.detail = "keyword";
-        i.sortText = 3 + i.label;
+        i.sortText = String.format("%02d%s", Priority.KEYWORD, i.label);
+        return i;
+    }
+
+    private CompletionItem packageCompletion(Element member) {
+        var i = new CompletionItem();
+        i.label = member.getSimpleName().toString();
+        i.kind = completionItemKind(member);
+        i.detail = member.toString();
+        i.sortText = String.format("%02d%s", Priority.PACKAGE_MEMBER, i.label);
+        i.data = new JsonPrimitive(new Ptr(member).toString());
         return i;
     }
 
@@ -1488,7 +1503,17 @@ class CompileBatch implements AutoCloseable {
         i.label = name;
         i.kind = CompletionItemKind.Module;
         i.detail = fullName;
-        i.sortText = 2 + i.label;
+        i.sortText = String.format("%02d%s", Priority.PACKAGE_MEMBER, i.label);
+        return i;
+    }
+
+    private CompletionItem caseCompletion(Element member) {
+        var i = new CompletionItem();
+        i.label = member.getSimpleName().toString();
+        i.kind = completionItemKind(member);
+        i.detail = member.toString();
+        i.sortText = String.format("%02d%s", Priority.CASE_LABEL, i.label);
+        i.data = new JsonPrimitive(new Ptr(member).toString());
         return i;
     }
 
@@ -1498,11 +1523,62 @@ class CompileBatch implements AutoCloseable {
         i.kind = CompletionItemKind.Class;
         i.detail = name;
         if (isImported) {
-            i.sortText = 2 + i.label;
+            i.sortText = String.format("%02d%s", Priority.IMPORTED_CLASS, i.label);
         } else {
-            i.sortText = 4 + i.label;
+            i.sortText = String.format("%02d%s", Priority.NOT_IMPORTED_CLASS, i.label);
         }
         return i;
+    }
+
+    private int methodPriority(ExecutableElement e, TypeMirror container) {
+        var declared = (TypeElement) e.getEnclosingElement();
+        if (declared.equals(container)) {
+            return Priority.METHOD;
+        } else if (declared.getQualifiedName().contentEquals("java.lang.Object")) {
+            return Priority.OBJECT_METHOD;
+        } else {
+            return Priority.INHERITED_METHOD;
+        }
+    }
+
+    private int varPriority(VariableElement e, TypeMirror container) {
+        if (container instanceof TypeElement) {
+            var declared = (TypeElement) e.getEnclosingElement();
+            if (declared.equals(container)) {
+                return Priority.FIELD;
+            } else {
+                return Priority.INHERITED_FIELD;
+            }
+        } else {
+            return Priority.LOCAL;
+        }
+    }
+
+    private int innerClassPriority(TypeElement e, TypeMirror container) {
+        var declared = (TypeElement) e.getEnclosingElement();
+        if (declared.equals(container)) {
+            return Priority.INNER_CLASS;
+        } else {
+            return Priority.INHERITED_INNER_CLASS;
+        }
+    }
+
+    private static class Priority {
+        static int iota = 0;
+        static final int SNIPPET = iota;
+        static final int LOCAL = iota++;
+        static final int FIELD = iota++;
+        static final int INHERITED_FIELD = iota++;
+        static final int METHOD = iota++;
+        static final int INHERITED_METHOD = iota++;
+        static final int OBJECT_METHOD = iota++;
+        static final int INNER_CLASS = iota++;
+        static final int INHERITED_INNER_CLASS = iota++;
+        static final int IMPORTED_CLASS = iota++;
+        static final int NOT_IMPORTED_CLASS = iota++;
+        static final int KEYWORD = iota++;
+        static final int PACKAGE_MEMBER = iota++;
+        static final int CASE_LABEL = iota++;
     }
 
     private static final Logger LOG = Logger.getLogger("main");

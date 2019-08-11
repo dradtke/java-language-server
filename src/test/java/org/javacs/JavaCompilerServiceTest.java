@@ -15,7 +15,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.StringJoiner;
 import java.util.stream.Collectors;
-import javax.lang.model.element.Element;
 import org.javacs.lsp.*;
 import org.junit.Before;
 import org.junit.Ignore;
@@ -86,16 +85,22 @@ public class JavaCompilerServiceTest {
         return result;
     }
 
-    private List<String> elementNames(List<Element> found) {
-        return found.stream().map(e -> e.getSimpleName().toString()).collect(Collectors.toList());
-    }
-
     @Test
     public void identifiers() {
         var uri = resourceUri("CompleteIdentifiers.java");
-        var focus = compiler.compileFocus(uri, 13, 21);
-        var found = focus.scopeMembers(uri, 13, 21, "complete");
-        var names = elementNames(found);
+        var ctx = Parser.parseFile(uri).completionContext(13, 21);
+        var focus = compiler.compileFocus(uri, ctx.line, ctx.character);
+        var found =
+                focus.completeIdentifiers(
+                        uri,
+                        ctx.line,
+                        ctx.character,
+                        ctx.inClass,
+                        ctx.inMethod,
+                        ctx.partialName,
+                        ctx.addParens,
+                        ctx.addSemi);
+        var names = filterText(found);
         assertThat(names, hasItem("completeLocal"));
         assertThat(names, hasItem("completeParam"));
         //        assertThat(names, hasItem("super"));
@@ -110,9 +115,19 @@ public class JavaCompilerServiceTest {
     @Test
     public void identifiersInMiddle() {
         var uri = resourceUri("CompleteInMiddle.java");
-        var focus = compiler.compileFocus(uri, 13, 21);
-        var found = focus.scopeMembers(uri, 13, 21, "complete");
-        var names = elementNames(found);
+        var ctx = Parser.parseFile(uri).completionContext(13, 21);
+        var focus = compiler.compileFocus(uri, ctx.line, ctx.character);
+        var found =
+                focus.completeIdentifiers(
+                        uri,
+                        ctx.line,
+                        ctx.character,
+                        ctx.inClass,
+                        ctx.inMethod,
+                        ctx.partialName,
+                        ctx.addParens,
+                        ctx.addSemi);
+        var names = filterText(found);
         assertThat(names, hasItem("completeLocal"));
         assertThat(names, hasItem("completeParam"));
         //        assertThat(names, hasItem("super"));
