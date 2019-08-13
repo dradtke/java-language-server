@@ -8,7 +8,6 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.logging.Logger;
 import org.javacs.debug.*;
 import org.javacs.debug.proto.*;
-import org.junit.Before;
 import org.junit.Test;
 
 public class JavaDebugServerTest {
@@ -58,10 +57,9 @@ public class JavaDebugServerTest {
         }
     }
 
-    @Before
-    public void launchProcess() throws IOException, InterruptedException {
+    public void launchProcess(String mainClass) throws IOException, InterruptedException {
         var command =
-                List.of("java", "-Xdebug", "-Xrunjdwp:transport=dt_socket,address=5005,server=y,suspend=y", "Hello");
+                List.of("java", "-Xdebug", "-Xrunjdwp:transport=dt_socket,address=5005,server=y,suspend=y", mainClass);
         LOG.info("Launch " + String.join(", ", command));
         process = new ProcessBuilder().command(command).directory(workingDirectory.toFile()).inheritIO().start();
         java.lang.Thread.sleep(1000);
@@ -74,28 +72,30 @@ public class JavaDebugServerTest {
         server.attach(attach);
     }
 
-    private void setBreakpoint(int line) {
+    private void setBreakpoint(String className, int line) {
         var set = new SetBreakpointsArguments();
         var point = new SourceBreakpoint();
         point.line = line;
-        set.source.path = workingDirectory.resolve("Hello.java").toString();
+        set.source.path = workingDirectory.resolve(className + ".java").toString();
         set.breakpoints = new SourceBreakpoint[] {point};
         server.setBreakpoints(set);
     }
 
     @Test
-    public void attachToProcess() throws InterruptedException {
+    public void attachToProcess() throws IOException, InterruptedException {
+        launchProcess("Hello");
         attach(5005);
         server.configurationDone();
         process.waitFor();
     }
 
     @Test
-    public void setBreakpoint() throws InterruptedException {
+    public void setBreakpoint() throws IOException, InterruptedException {
+        launchProcess("Hello");
         // Attach to the process
         attach(5005);
-        // Set a breakpoint at HelloWorld.java:4
-        setBreakpoint(4);
+        // Set a breakpoint at Hello.java:4
+        setBreakpoint("Hello", 4);
         server.configurationDone();
         // Wait for stop
         stoppedEvents.take();
@@ -139,11 +139,12 @@ public class JavaDebugServerTest {
     }
 
     @Test
-    public void step() throws InterruptedException {
+    public void step() throws IOException, InterruptedException {
+        launchProcess("Hello");
         // Attach to the process
         attach(5005);
         // Set a breakpoint at HelloWorld.java:4
-        setBreakpoint(4);
+        setBreakpoint("Hello", 4);
         server.configurationDone();
         // Wait for stop
         stoppedEvents.take();
@@ -164,17 +165,56 @@ public class JavaDebugServerTest {
     }
 
     @Test
-    public void addBreakpoint() throws InterruptedException {
+    public void addBreakpoint() throws IOException, InterruptedException {
+        launchProcess("Hello");
         // Attach to the process
         attach(5005);
         // Stop at 4
-        setBreakpoint(4);
+        setBreakpoint("Hello", 4);
         server.configurationDone();
         stoppedEvents.take();
         // Stop at 6
-        setBreakpoint(6);
+        setBreakpoint("Hello", 6);
         server.continue_(new ContinueArguments());
         stoppedEvents.take();
+        // Wait for process to exit
+        server.continue_(new ContinueArguments());
+        process.waitFor();
+    }
+
+    @Test
+    public void printCollections() throws IOException, InterruptedException {
+        launchProcess("Collections");
+        attach(5005);
+        setBreakpoint("Collections", 8);
+        server.configurationDone();
+        stoppedEvents.take();
+        // Find the main thread
+        var threads = server.threads().threads;
+        for (var t : threads) {
+            if (t.name.equals("main")) {
+                // Get the stack trace
+                var requestTrace = new StackTraceArguments();
+                requestTrace.threadId = t.id;
+                var stack = server.stackTrace(requestTrace);
+                System.out.println("Thread main:");
+                for (var frame : stack.stackFrames) {
+                    System.out.println(String.format("\t%s:%d (%s)", frame.name, frame.line, frame.source.path));
+                }
+                // Get variables
+                var requestScopes = new ScopesArguments();
+                requestScopes.frameId = stack.stackFrames[0].id;
+                var scopes = server.scopes(requestScopes).scopes;
+                // Get locals
+                var requestLocals = new VariablesArguments();
+                requestLocals.variablesReference = scopes[0].variablesReference;
+                var locals = server.variables(requestLocals).variables;
+                System.out.println("Locals:");
+                for (var v : locals) {
+                    System.out.println(String.format("\t%s %s = %s", v.type, v.name, v.value));
+                }
+            }
+        }
         // Wait for process to exit
         server.continue_(new ContinueArguments());
         process.waitFor();

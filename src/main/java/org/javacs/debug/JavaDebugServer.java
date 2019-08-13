@@ -437,8 +437,16 @@ public class JavaDebugServer implements DebugServer {
     @Override
     public ThreadsResponseBody threads() {
         var threads = new ThreadsResponseBody();
-        threads.threads = vm.allThreads().stream().map(this::asThread).toArray(org.javacs.debug.proto.Thread[]::new);
+        threads.threads = asThreads(vm.allThreads());
         return threads;
+    }
+
+    private org.javacs.debug.proto.Thread[] asThreads(List<ThreadReference> ts) {
+        var result = new org.javacs.debug.proto.Thread[ts.size()];
+        for (var i = 0; i < ts.size(); i++) {
+            result[i] = asThread(ts.get(i));
+        }
+        return result;
     }
 
     private org.javacs.debug.proto.Thread asThread(ThreadReference t) {
@@ -466,10 +474,8 @@ public class JavaDebugServer implements DebugServer {
                     if (req.levels != null && req.levels < length) {
                         length = req.levels;
                     }
-                    var frames = t.frames(req.startFrame, length);
                     var resp = new StackTraceResponseBody();
-                    resp.stackFrames =
-                            frames.stream().map(this::asStackFrame).toArray(org.javacs.debug.proto.StackFrame[]::new);
+                    resp.stackFrames = asStackFrames(t.frames(req.startFrame, length));
                     resp.totalFrames = t.frameCount();
                     return resp;
                 }
@@ -478,6 +484,14 @@ public class JavaDebugServer implements DebugServer {
         } catch (IncompatibleThreadStateException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private org.javacs.debug.proto.StackFrame[] asStackFrames(List<com.sun.jdi.StackFrame> fs) {
+        var result = new org.javacs.debug.proto.StackFrame[fs.size()];
+        for (var i = 0; i < fs.size(); i++) {
+            result[i] = asStackFrame(fs.get(i));
+        }
+        return result;
     }
 
     private org.javacs.debug.proto.StackFrame asStackFrame(com.sun.jdi.StackFrame f) {
@@ -583,53 +597,54 @@ public class JavaDebugServer implements DebugServer {
     public VariablesResponseBody variables(VariablesArguments req) {
         var frameId = req.variablesReference / 2;
         var scopeId = (int) (req.variablesReference % 2);
+        var argumentScope = scopeId == 1;
         var frame = findFrame(frameId);
-        var resp = new VariablesResponseBody();
-        switch (scopeId) {
-            case 0: // locals
-                resp.variables = locals(frame);
-                break;
-            case 1: // arguments
-                resp.variables = arguments(frame);
-                break;
+        List<LocalVariable> visible;
+        try {
+            visible = frame.visibleVariables();
+        } catch (AbsentInformationException __) {
+            LOG.warning(String.format("No visible variable information in %s", frame.location()));
+            return new VariablesResponseBody();
         }
+        var values = frame.getValues(visible);
+        var thread = frame.thread();
+        var variables = new ArrayList<Variable>();
+        for (var v : visible) {
+            if (v.isArgument() != argumentScope) continue;
+            Variable w = new Variable();
+            w.name = v.name();
+            w.value = print(values.get(v), thread);
+            w.type = v.typeName();
+            // TODO set variablesReference and allow inspecting structure of collections and POJOs
+            // TODO set variablePresentationHint
+            variables.add(w);
+        }
+        var resp = new VariablesResponseBody();
+        resp.variables = variables.toArray(Variable[]::new);
         return resp;
     }
 
-    private Variable[] locals(com.sun.jdi.StackFrame frame) {
-        return visible(frame)
-                .stream()
-                .filter(v -> !v.isArgument())
-                .map(v -> asVariable(v, frame))
-                .toArray(Variable[]::new);
-    }
-
-    private Variable[] arguments(com.sun.jdi.StackFrame frame) {
-        return visible(frame)
-                .stream()
-                .filter(v -> v.isArgument())
-                .map(v -> asVariable(v, frame))
-                .toArray(Variable[]::new);
-    }
-
-    private List<LocalVariable> visible(com.sun.jdi.StackFrame frame) {
-        try {
-            return frame.visibleVariables();
-        } catch (AbsentInformationException __) {
-            LOG.warning(String.format("No visible variable information in %s", frame.location()));
-            return List.of();
+    private String print(Value value, ThreadReference t) {
+        if (value instanceof ObjectReference) {
+            return printObject((ObjectReference) value, t);
+        } else {
+            return value.toString();
         }
     }
 
-    private Variable asVariable(LocalVariable v, com.sun.jdi.StackFrame frame) {
-        Variable convert = new Variable();
-        convert.name = v.name();
-        convert.value = frame.getValue(v).toString();
-        convert.type = v.typeName();
-        convert.variablesReference =
-                -1; // TODO set variablesReference and allow inspecting structure of collections and POJOs
-        // TODO set variablePresentationHint
-        return convert;
+    private String printObject(ObjectReference object, ThreadReference t) {
+        var type = object.referenceType();
+        for (var method : type.methodsByName("toString", "()Ljava/lang/String;")) {
+            try {
+                var string = (StringReference) object.invokeMethod(t, method, List.of(), 0);
+                return string.value();
+            } catch (InvocationException e) {
+                return String.format("toString() threw %s", e.exception().type().name());
+            } catch (InvalidTypeException | ClassNotLoadedException | IncompatibleThreadStateException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        return object.toString();
     }
 
     @Override
