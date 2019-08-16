@@ -12,8 +12,15 @@ import java.util.HashSet;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
+
+import org.gradle.tooling.GradleConnector;
+import org.gradle.tooling.GradleConnectionException;
+import org.gradle.tooling.ResultHandler;
+import org.gradle.tooling.model.gradle.GradleBuild;
+import org.gradle.tooling.ProjectConnection;
 
 class InferConfig {
     private static final Logger LOG = Logger.getLogger("main");
@@ -52,8 +59,10 @@ class InferConfig {
 
     /** Find .jar files for external dependencies, for examples maven dependencies in ~/.m2 or jars in bazel-genfiles */
     Set<Path> classPath() {
+      LOG.info("Running classpath inferral, still");
         // externalDependencies
         if (!externalDependencies.isEmpty()) {
+            LOG.info("External dependencies wasn't empty");
             var result = new HashSet<Path>();
             for (var id : externalDependencies) {
                 var a = Artifact.parse(id);
@@ -67,14 +76,26 @@ class InferConfig {
         // Maven
         var pomXml = workspaceRoot.resolve("pom.xml");
         if (Files.exists(pomXml)) {
+            LOG.info("Returning Maven dependencies");
             return mvnDependencies(pomXml, "dependency:list");
         }
 
         // Bazel
         if (Files.exists(workspaceRoot.resolve("WORKSPACE"))) {
+            LOG.info("Returning Bazel dependencies");
             return bazelDeps("jars");
         }
 
+        LOG.info("Checking to see if we need Gradle deps");
+
+        // Gradle
+        // TODO: also look for gradlew.bat
+        var gradleWrapper = workspaceRoot.resolve("gradlew");
+        if (Files.exists(gradleWrapper)) {
+          return gradleDeps(workspaceRoot);
+        }
+
+        LOG.info("Returning no dependencies");
         return Collections.emptySet();
     }
 
@@ -127,6 +148,7 @@ class InferConfig {
     }
 
     private Optional<Path> findGradleJar(Artifact artifact, boolean source) {
+      LOG.info("Finding gradle jar");
         // Search for caches/modules-*/files-*/groupId/artifactId/version/*/artifactId-version[-sources].jar
         var base = gradleHome.resolve("caches");
         var pattern =
@@ -148,6 +170,30 @@ class InferConfig {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private class GradleDepsHandler<T> implements ResultHandler<T> {
+      public void onComplete(T result) {
+        LOG.info("GradleDepsHandler onComplete: " + result.toString());
+      }
+
+      public void onFailure(GradleConnectionException e) {
+        LOG.info("GradleDepsHandler onFailure: " + e.toString());
+      }
+    }
+
+    private Set<Path> gradleDeps(Path directory) {
+      LOG.info("Getting Gradle dependencies from " + directory.toString());
+      final Set<Path> deps = new TreeSet<>();
+      try (ProjectConnection connection = GradleConnector.newConnector().forProjectDirectory(directory.toFile()).connect()) {
+        // Get subprojects
+        var build = connection.getModel(GradleBuild.class);
+        build.getProjects().forEach(project -> {
+          LOG.info("Project " + project.getName());
+          connection.newBuild().forTasks("dependencies").run(new GradleDepsHandler<Object>());
+        });
+      }
+      return Collections.emptySet();
     }
 
     private String fileName(Artifact artifact, boolean source) {

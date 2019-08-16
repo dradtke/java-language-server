@@ -10,15 +10,19 @@ set -e
 mvn compile
 
 # Patch gson
-if [ ! -e modules/gson.jar ]; then
+if [ ! -e modules/gson/gson.jar ]; then
   ./scripts/patch_gson.sh
+fi
+
+if [ ! -e modules/gradle-tooling-api/gradle-tooling-api.jar ]; then
+  ./scripts/patch_gradle_tooling_api.sh
 fi
 
 # Build using jlink
 rm -rf dist/mac
 $JAVA_HOME/bin/jlink \
-  --module-path modules/gson.jar:target/classes \
-  --add-modules gson,javacs \
+  --module-path modules/gson/gson.jar:modules/gradle-tooling-api/gradle-tooling-api.jar:target/classes \
+  --add-modules gson,javacs,gradle.tooling.api \
   --launcher launcher=javacs/org.javacs.Main \
   --output dist/mac \
   --compress 2 

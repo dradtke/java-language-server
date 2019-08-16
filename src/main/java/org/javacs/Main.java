@@ -3,6 +3,7 @@ package org.javacs;
 import java.util.Arrays;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.logging.FileHandler;
 import org.javacs.lsp.*;
 
 public class Main {
@@ -22,7 +23,7 @@ public class Main {
         }
 
         try {
-            // Logger.getLogger("").addHandler(new FileHandler("javacs.%u.log", false));
+            Logger.getLogger("").addHandler(new FileHandler("/tmp/log/javacs.%u.log", false));
             setRootFormat();
 
             LSP.connect(JavaLanguageServer::new, System.in, System.out);

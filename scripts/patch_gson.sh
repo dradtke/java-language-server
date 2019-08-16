@@ -9,7 +9,7 @@ set -e
 ./scripts/check_java_home.sh
 
 # Download Gson jar
-cd modules
+cd modules/gson
 curl https://repo1.maven.org/maven2/com/google/code/gson/gson/2.8.5/gson-2.8.5.jar > gson.jar
 
 # Unpack jar into modules/classes
@@ -26,4 +26,4 @@ $JAVA_HOME/bin/jar uf gson.jar -C classes module-info.class
 
 # Clean up
 rm -rf classes
-cd ..
+cd ../..
