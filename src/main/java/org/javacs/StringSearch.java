@@ -5,7 +5,6 @@ import java.net.URI;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.charset.Charset;
-import java.nio.charset.MalformedInputException;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.Comparator;
@@ -488,8 +487,6 @@ class StringSearch {
                     return id;
                 }
             }
-        } catch (MalformedInputException e) {
-            LOG.warning("Malformed input in file " + file.toString() + ": " + e.getMessage());
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
