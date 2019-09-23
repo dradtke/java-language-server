@@ -1,5 +1,6 @@
 package org.javacs;
 
+import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.HashMap;
@@ -41,11 +42,11 @@ class Cache<K, V> {
 
     private final Map<Key, Value> map = new HashMap<>();
 
-    boolean has(Path file, K k) {
+    boolean has(Path file, K k) throws IOException {
         return !needs(file, k);
     }
 
-    boolean needs(Path file, K k) {
+    boolean needs(Path file, K k) throws IOException {
         // If key is not in map, it needs to be loaded
         var key = new Key<K>(file, k);
         if (!map.containsKey(key)) return true;

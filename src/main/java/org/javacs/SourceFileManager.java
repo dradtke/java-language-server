@@ -41,11 +41,15 @@ class SourceFileManager extends ForwardingJavaFileManager<StandardJavaFileManage
     @Override
     public String inferBinaryName(Location location, JavaFileObject file) {
         if (location == StandardLocation.SOURCE_PATH) {
-            var source = (SourceFileObject) file;
-            var packageName = FileStore.packageName(source.path);
-            var className = removeExtension(source.path.getFileName().toString());
-            if (!packageName.isEmpty()) className = packageName + "." + className;
-            return className;
+            try {
+                var source = (SourceFileObject) file;
+                var packageName = FileStore.packageName(source.path);
+                var className = removeExtension(source.path.getFileName().toString());
+                if (!packageName.isEmpty()) className = packageName + "." + className;
+                return className;
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
         } else {
             return super.inferBinaryName(location, file);
         }

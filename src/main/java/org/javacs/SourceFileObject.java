@@ -123,7 +123,11 @@ class SourceFileObject implements JavaFileObject {
         if (contents != null) {
             return modified.toEpochMilli();
         }
-        return FileStore.modified(path).toEpochMilli();
+        try {
+            return FileStore.modified(path).toEpochMilli();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Override

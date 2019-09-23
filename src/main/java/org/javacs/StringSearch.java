@@ -325,7 +325,7 @@ class StringSearch {
 
     static Cache<String, Boolean> cacheContainsClass = new Cache<>();
 
-    static boolean containsClass(Path file, String simpleName) {
+    static boolean containsClass(Path file, String simpleName) throws IOException {
         if (cacheContainsClass.needs(file, simpleName)) {
             cacheContainsClass.load(file, simpleName, containsString(file, "class " + simpleName));
             // TODO verify this by actually parsing the file
@@ -333,7 +333,7 @@ class StringSearch {
         return cacheContainsClass.get(file, simpleName);
     }
 
-    static boolean containsImport(Path file, String toPackage, String toClass) {
+    static boolean containsImport(Path file, String toPackage, String toClass) throws IOException {
         if (toPackage.isEmpty()) return true;
         var samePackage = Pattern.compile("^package +" + toPackage + ";");
         var importClass = Pattern.compile("^import +" + toPackage + "\\." + toClass + ";");
@@ -349,8 +349,6 @@ class StringSearch {
                 if (importStatic.matcher(line).find()) return true;
                 if (importClass.matcher(line).find()) return true;
             }
-        } catch (IOException e) {
-            throw new RuntimeException(e);
         }
         return false;
     }
@@ -475,7 +473,7 @@ class StringSearch {
         return parts[parts.length - 1];
     }
 
-    static String packageName(Path file) {
+    static String packageName(Path file) throws IOException {
         var packagePattern = Pattern.compile("^package +(.*);");
         var startOfClass = Pattern.compile("^[\\w ]*class +\\w+");
         try (var lines = FileStore.lines(file)) {
@@ -487,11 +485,9 @@ class StringSearch {
                     return id;
                 }
             }
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+            // TODO fall back on parsing file
+            return "";
         }
-        // TODO fall back on parsing file
-        return "";
     }
 
     static boolean matchesPartialName(CharSequence candidate, CharSequence partialName) {

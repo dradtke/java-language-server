@@ -1,5 +1,6 @@
 package org.javacs;
 
+import java.io.IOException;
 import java.io.File;
 import java.net.URI;
 import java.nio.file.*;
@@ -80,13 +81,13 @@ class JavaCompilerService {
         return docs;
     }
 
-    CompileBatch compileFocus(URI uri, int line, int character) {
+    CompileBatch compileFocus(URI uri, int line, int character) throws IOException {
         var contents = Parser.parseFile(uri).prune(line, character);
         var file = new SourceFileObject(uri, contents, Instant.now());
         return compileBatch(List.of(file));
     }
 
-    CompileBatch compileBatch(Collection<? extends JavaFileObject> sources) {
+    CompileBatch compileBatch(Collection<? extends JavaFileObject> sources) throws IOException {
         var firstAttempt = new CompileBatch(this, sources);
         var addFiles = firstAttempt.needsAdditionalSources();
         if (addFiles.isEmpty()) return firstAttempt;

@@ -2,6 +2,7 @@ package org.javacs;
 
 import com.google.gson.*;
 import com.sun.source.tree.*;
+import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -66,6 +67,8 @@ class JavaLanguageServer extends LanguageServer {
             LOG.info(String.format("...colored in %d ms", elapsed));
             // Done
             uncheckedChanges = false;
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
         var done = Instant.now();
         LOG.info(String.format("...done in %d ms", Duration.between(started, done).toMillis()));
@@ -210,21 +213,25 @@ class JavaLanguageServer extends LanguageServer {
 
     @Override
     public void didChangeWatchedFiles(DidChangeWatchedFilesParams params) {
-        // TODO update config when pom.xml changes
-        for (var c : params.changes) {
-            if (!FileStore.isJavaFile(c.uri)) continue;
-            var file = Paths.get(c.uri);
-            switch (c.type) {
-                case FileChangeType.Created:
-                    FileStore.externalCreate(file);
-                    break;
-                case FileChangeType.Changed:
-                    FileStore.externalChange(file);
-                    break;
-                case FileChangeType.Deleted:
-                    FileStore.externalDelete(file);
-                    break;
+        try {
+            // TODO update config when pom.xml changes
+            for (var c : params.changes) {
+                if (!FileStore.isJavaFile(c.uri)) continue;
+                var file = Paths.get(c.uri);
+                switch (c.type) {
+                    case FileChangeType.Created:
+                        FileStore.externalCreate(file);
+                        break;
+                    case FileChangeType.Changed:
+                        FileStore.externalChange(file);
+                        break;
+                    case FileChangeType.Deleted:
+                        FileStore.externalDelete(file);
+                        break;
+                }
             }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
     }
 
@@ -290,6 +297,8 @@ class JavaLanguageServer extends LanguageServer {
                 default:
                     throw new RuntimeException("Unexpected completion context " + ctx.kind);
             }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
         // Log timing
         var elapsedMs = Duration.between(started, Instant.now()).toMillis();
@@ -467,6 +476,8 @@ class JavaLanguageServer extends LanguageServer {
             LOG.info(String.format("...found hover in %d ms", elapsed.toMillis()));
 
             return Optional.of(new Hover(result));
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
     }
 
@@ -478,109 +489,119 @@ class JavaLanguageServer extends LanguageServer {
         var column = position.position.character + 1;
         try (var focus = compiler().compileFocus(uri, line, column)) {
             return focus.signatureHelp(uri, line, column);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
     }
 
     @Override
     public Optional<List<Location>> gotoDefinition(TextDocumentPositionParams position) {
-        var fromUri = position.textDocument.uri;
-        if (!FileStore.isJavaFile(fromUri)) return Optional.empty();
-        var fromLine = position.position.line + 1;
-        var fromColumn = position.position.character + 1;
+        try {
+            var fromUri = position.textDocument.uri;
+            if (!FileStore.isJavaFile(fromUri)) return Optional.empty();
+            var fromLine = position.position.line + 1;
+            var fromColumn = position.position.character + 1;
 
-        // Compile from-file and identify element under cursor
-        LOG.info(String.format("Go-to-def at %s:%d...", fromUri, fromLine));
-        Optional<Element> toEl;
-        var sources = Set.of(new SourceFileObject(fromUri));
-        try (var compile = compiler().compileBatch(sources)) {
-            toEl = compile.element(fromUri, fromLine, fromColumn);
-            if (!toEl.isPresent()) {
-                LOG.info(String.format("...no element at cursor"));
-                return Optional.empty();
-            }
-        }
-
-        // Compile all files that *might* contain definitions of fromEl
-        var toFiles = Parser.potentialDefinitions(toEl.get());
-        toFiles.add(fromUri);
-        var eraseCode = pruneWord(toFiles, Parser.simpleName(toEl.get()));
-        try (var batch = compiler().compileBatch(eraseCode)) {
-            // Find fromEl again, so that we have an Element from the current batch
-            var fromElAgain = batch.element(fromUri, fromLine, fromColumn).get();
-            // Find all definitions of fromElAgain
-            var toTreePaths = batch.definitions(fromElAgain);
-            if (!toTreePaths.isPresent()) return Optional.empty();
-            var result = new ArrayList<Location>();
-            for (var path : toTreePaths.get()) {
-                var toUri = path.getCompilationUnit().getSourceFile().toUri();
-                var toRange = batch.range(path);
-                if (!toRange.isPresent()) {
-                    LOG.warning(String.format("Couldn't locate `%s`", path.getLeaf()));
-                    continue;
+            // Compile from-file and identify element under cursor
+            LOG.info(String.format("Go-to-def at %s:%d...", fromUri, fromLine));
+            Optional<Element> toEl;
+            var sources = Set.of(new SourceFileObject(fromUri));
+            try (var compile = compiler().compileBatch(sources)) {
+                toEl = compile.element(fromUri, fromLine, fromColumn);
+                if (!toEl.isPresent()) {
+                    LOG.info(String.format("...no element at cursor"));
+                    return Optional.empty();
                 }
-                var from = new Location(toUri, toRange.get());
-                result.add(from);
             }
-            return Optional.of(result);
+
+            // Compile all files that *might* contain definitions of fromEl
+            var toFiles = Parser.potentialDefinitions(toEl.get());
+            toFiles.add(fromUri);
+            var eraseCode = pruneWord(toFiles, Parser.simpleName(toEl.get()));
+            try (var batch = compiler().compileBatch(eraseCode)) {
+                // Find fromEl again, so that we have an Element from the current batch
+                var fromElAgain = batch.element(fromUri, fromLine, fromColumn).get();
+                // Find all definitions of fromElAgain
+                var toTreePaths = batch.definitions(fromElAgain);
+                if (!toTreePaths.isPresent()) return Optional.empty();
+                var result = new ArrayList<Location>();
+                for (var path : toTreePaths.get()) {
+                    var toUri = path.getCompilationUnit().getSourceFile().toUri();
+                    var toRange = batch.range(path);
+                    if (!toRange.isPresent()) {
+                        LOG.warning(String.format("Couldn't locate `%s`", path.getLeaf()));
+                        continue;
+                    }
+                    var from = new Location(toUri, toRange.get());
+                    result.add(from);
+                }
+                return Optional.of(result);
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
     }
 
     @Override
     public Optional<List<Location>> findReferences(ReferenceParams position) {
-        var toUri = position.textDocument.uri;
-        if (!FileStore.isJavaFile(toUri)) return Optional.empty();
-        var toLine = position.position.line + 1;
-        var toColumn = position.position.character + 1;
+        try {
+            var toUri = position.textDocument.uri;
+            if (!FileStore.isJavaFile(toUri)) return Optional.empty();
+            var toLine = position.position.line + 1;
+            var toColumn = position.position.character + 1;
 
-        // TODO use parser to figure out batch to compile, avoiding compiling twice
+            // TODO use parser to figure out batch to compile, avoiding compiling twice
 
-        // Compile from-file and identify element under cursor
-        LOG.warning(String.format("Looking for references to %s(%d,%d)...", toUri.getPath(), toLine, toColumn));
-        Optional<Element> toEl;
-        var sources = Set.of(new SourceFileObject(toUri));
-        try (var compile = compiler().compileBatch(sources)) {
-            toEl = compile.element(toUri, toLine, toColumn);
-            if (!toEl.isPresent()) {
-                LOG.warning("...no element under cursor");
-                return Optional.empty();
-            }
-        }
-
-        // Compile all files that *might* contain references to toEl
-        var name = Parser.simpleName(toEl.get());
-        var fromUris = new HashSet<URI>();
-        var isLocal =
-                toEl.get() instanceof VariableElement && !(toEl.get().getEnclosingElement() instanceof TypeElement);
-        if (!isLocal) {
-            var isType = false;
-            switch (toEl.get().getKind()) {
-                case ANNOTATION_TYPE:
-                case CLASS:
-                case INTERFACE:
-                    isType = true;
-            }
-            var flags = toEl.get().getModifiers();
-            var possible = Parser.potentialReferences(toUri, name, isType, flags);
-            fromUris.addAll(possible);
-        }
-        fromUris.add(toUri);
-        var eraseCode = pruneWord(fromUris, name);
-        try (var batch = compiler().compileBatch(eraseCode)) {
-            var fromTreePaths = batch.references(toUri, toLine, toColumn);
-            LOG.info(String.format("...found %d references", fromTreePaths.map(List::size).orElse(0)));
-            if (!fromTreePaths.isPresent()) return Optional.empty();
-            var result = new ArrayList<Location>();
-            for (var path : fromTreePaths.get()) {
-                var fromUri = path.getCompilationUnit().getSourceFile().toUri();
-                var fromRange = batch.range(path);
-                if (!fromRange.isPresent()) {
-                    LOG.warning(String.format("...couldn't locate `%s`", path.getLeaf()));
-                    continue;
+            // Compile from-file and identify element under cursor
+            LOG.warning(String.format("Looking for references to %s(%d,%d)...", toUri.getPath(), toLine, toColumn));
+            Optional<Element> toEl;
+            var sources = Set.of(new SourceFileObject(toUri));
+            try (var compile = compiler().compileBatch(sources)) {
+                toEl = compile.element(toUri, toLine, toColumn);
+                if (!toEl.isPresent()) {
+                    LOG.warning("...no element under cursor");
+                    return Optional.empty();
                 }
-                var from = new Location(fromUri, fromRange.get());
-                result.add(from);
             }
-            return Optional.of(result);
+
+            // Compile all files that *might* contain references to toEl
+            var name = Parser.simpleName(toEl.get());
+            var fromUris = new HashSet<URI>();
+            var isLocal =
+                toEl.get() instanceof VariableElement && !(toEl.get().getEnclosingElement() instanceof TypeElement);
+            if (!isLocal) {
+                var isType = false;
+                switch (toEl.get().getKind()) {
+                    case ANNOTATION_TYPE:
+                    case CLASS:
+                    case INTERFACE:
+                        isType = true;
+                }
+                var flags = toEl.get().getModifiers();
+                var possible = Parser.potentialReferences(toUri, name, isType, flags);
+                fromUris.addAll(possible);
+            }
+            fromUris.add(toUri);
+            var eraseCode = pruneWord(fromUris, name);
+            try (var batch = compiler().compileBatch(eraseCode)) {
+                var fromTreePaths = batch.references(toUri, toLine, toColumn);
+                LOG.info(String.format("...found %d references", fromTreePaths.map(List::size).orElse(0)));
+                if (!fromTreePaths.isPresent()) return Optional.empty();
+                var result = new ArrayList<Location>();
+                for (var path : fromTreePaths.get()) {
+                    var fromUri = path.getCompilationUnit().getSourceFile().toUri();
+                    var fromRange = batch.range(path);
+                    if (!fromRange.isPresent()) {
+                        LOG.warning(String.format("...couldn't locate `%s`", path.getLeaf()));
+                        continue;
+                    }
+                    var from = new Location(fromUri, fromRange.get());
+                    result.add(from);
+                }
+                return Optional.of(result);
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
     }
 
@@ -617,77 +638,81 @@ class JavaLanguageServer extends LanguageServer {
 
     @Override
     public List<CodeLens> codeLens(CodeLensParams params) {
-        var uri = params.textDocument.uri;
-        if (!FileStore.isJavaFile(uri)) return List.of();
-        updateCachedParse(uri);
-        var declarations = cacheParse.codeLensDeclarations();
-        var result = new ArrayList<CodeLens>();
-        for (var d : declarations) {
-            var range = cacheParse.range(d);
-            if (!range.isPresent()) continue;
-            var className = Parser.className(d);
-            var memberName = Parser.memberName(d);
-            // If test class or method, add "Run Test" code lens
-            if (cacheParse.isTestClass(d)) {
-                var arguments = new JsonArray();
-                arguments.add(uri.toString());
-                arguments.add(className);
-                arguments.add(JsonNull.INSTANCE);
-                var command = new Command("Run All Tests", "java.command.test.run", arguments);
-                var lens = new CodeLens(range.get(), command, null);
-                result.add(lens);
-                // TODO run all tests in file
-                // TODO run all tests in package
-            }
-            if (cacheParse.isTestMethod(d)) {
-                var arguments = new JsonArray();
-                arguments.add(uri.toString());
-                arguments.add(className);
-                if (!memberName.isEmpty()) arguments.add(memberName);
-                else arguments.add(JsonNull.INSTANCE);
-                // 'Run Test' code lens
-                var command = new Command("Run Test", "java.command.test.run", arguments);
-                var lens = new CodeLens(range.get(), command, null);
-                result.add(lens);
-                // 'Debug Test' code lens
-                // TODO this could be a CPU hot spot
-                var sourceRoots = new JsonArray();
-                for (var path : FileStore.sourceRoots()) {
-                    sourceRoots.add(path.toString());
+        try {
+            var uri = params.textDocument.uri;
+            if (!FileStore.isJavaFile(uri)) return List.of();
+            updateCachedParse(uri);
+            var declarations = cacheParse.codeLensDeclarations();
+            var result = new ArrayList<CodeLens>();
+            for (var d : declarations) {
+                var range = cacheParse.range(d);
+                if (!range.isPresent()) continue;
+                var className = Parser.className(d);
+                var memberName = Parser.memberName(d);
+                // If test class or method, add "Run Test" code lens
+                if (cacheParse.isTestClass(d)) {
+                    var arguments = new JsonArray();
+                    arguments.add(uri.toString());
+                    arguments.add(className);
+                    arguments.add(JsonNull.INSTANCE);
+                    var command = new Command("Run All Tests", "java.command.test.run", arguments);
+                    var lens = new CodeLens(range.get(), command, null);
+                    result.add(lens);
+                    // TODO run all tests in file
+                    // TODO run all tests in package
                 }
-                arguments.add(sourceRoots);
-                command = new Command("Debug Test", "java.command.test.debug", arguments);
-                lens = new CodeLens(range.get(), command, null);
-                result.add(lens);
-            }
-            if (cacheParse.showReferencesCodeLens(d)) {
-                // Unresolved "_ references" code lens
-                var t = d.getLeaf();
-                var start = range.get().start;
-                var line = start.line;
-                var character = start.character;
-                var data = new CodeLensData();
-                data.uri = uri;
-                data.line = line;
-                data.character = character;
-                data.name = memberName.isEmpty() ? className : memberName;
-                data.signature = Parser.signature(d);
-                data.kind = t.getKind();
-                if (t instanceof MethodTree) {
-                    var method = (MethodTree) t;
-                    data.flags = method.getModifiers().getFlags();
-                } else if (t instanceof ClassTree) {
-                    var type = (ClassTree) t;
-                    data.flags = type.getModifiers().getFlags();
-                } else if (t instanceof VariableTree) {
-                    var field = (VariableTree) t;
-                    data.flags = field.getModifiers().getFlags();
+                if (cacheParse.isTestMethod(d)) {
+                    var arguments = new JsonArray();
+                    arguments.add(uri.toString());
+                    arguments.add(className);
+                    if (!memberName.isEmpty()) arguments.add(memberName);
+                    else arguments.add(JsonNull.INSTANCE);
+                    // 'Run Test' code lens
+                    var command = new Command("Run Test", "java.command.test.run", arguments);
+                    var lens = new CodeLens(range.get(), command, null);
+                    result.add(lens);
+                    // 'Debug Test' code lens
+                    // TODO this could be a CPU hot spot
+                    var sourceRoots = new JsonArray();
+                    for (var path : FileStore.sourceRoots()) {
+                        sourceRoots.add(path.toString());
+                    }
+                    arguments.add(sourceRoots);
+                    command = new Command("Debug Test", "java.command.test.debug", arguments);
+                    lens = new CodeLens(range.get(), command, null);
+                    result.add(lens);
                 }
-                var lens = new CodeLens(range.get(), null, GSON.toJsonTree(data));
-                result.add(lens);
+                if (cacheParse.showReferencesCodeLens(d)) {
+                    // Unresolved "_ references" code lens
+                    var t = d.getLeaf();
+                    var start = range.get().start;
+                    var line = start.line;
+                    var character = start.character;
+                    var data = new CodeLensData();
+                    data.uri = uri;
+                    data.line = line;
+                    data.character = character;
+                    data.name = memberName.isEmpty() ? className : memberName;
+                    data.signature = Parser.signature(d);
+                    data.kind = t.getKind();
+                    if (t instanceof MethodTree) {
+                        var method = (MethodTree) t;
+                        data.flags = method.getModifiers().getFlags();
+                    } else if (t instanceof ClassTree) {
+                        var type = (ClassTree) t;
+                        data.flags = type.getModifiers().getFlags();
+                    } else if (t instanceof VariableTree) {
+                        var field = (VariableTree) t;
+                        data.flags = field.getModifiers().getFlags();
+                    }
+                    var lens = new CodeLens(range.get(), null, GSON.toJsonTree(data));
+                    result.add(lens);
+                }
             }
+            return result;
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
-        return result;
     }
 
     @Override
@@ -724,23 +749,27 @@ class JavaLanguageServer extends LanguageServer {
     }
 
     private void updateCacheSelfReferences(URI uri) {
-        LOG.info(String.format("...count all self-references in %s...", uri.getPath()));
-        cacheSelfReferences.clear();
-        updateCachedParse(uri);
-        var sources = Set.of(new SourceFileObject(uri));
-        try (var batch = compiler().compileBatch(sources)) {
-            for (var d : cacheParse.codeLensDeclarations()) {
-                if (!cacheParse.showReferencesCodeLens(d)) continue;
-                var range = cacheParse.range(d);
-                if (range.isEmpty()) continue;
-                var start = range.get().start;
-                var fromPaths = batch.references(uri, start.line + 1, start.character + 1).orElse(List.of());
-                var signature = Parser.signature(d);
-                cacheSelfReferences.put(signature, fromPaths.size());
+        try {
+            LOG.info(String.format("...count all self-references in %s...", uri.getPath()));
+            cacheSelfReferences.clear();
+            updateCachedParse(uri);
+            var sources = Set.of(new SourceFileObject(uri));
+            try (var batch = compiler().compileBatch(sources)) {
+                for (var d : cacheParse.codeLensDeclarations()) {
+                    if (!cacheParse.showReferencesCodeLens(d)) continue;
+                    var range = cacheParse.range(d);
+                    if (range.isEmpty()) continue;
+                    var start = range.get().start;
+                    var fromPaths = batch.references(uri, start.line + 1, start.character + 1).orElse(List.of());
+                    var signature = Parser.signature(d);
+                    cacheSelfReferences.put(signature, fromPaths.size());
+                }
             }
+            cacheSelfReferencesFile = uri;
+            cacheSelfReferencesVersion = FileStore.version(uri);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
-        cacheSelfReferencesFile = uri;
-        cacheSelfReferencesVersion = FileStore.version(uri);
     }
 
     /** Cache reference counts on Parser.signature(_) */
@@ -749,49 +778,53 @@ class JavaLanguageServer extends LanguageServer {
     private static final int TOO_EXPENSIVE = 100;
 
     private int countCrossReferences(CodeLensData data) {
-        LOG.info(String.format("...count cross-file references to `%s`...", data.name));
-        // Identify all files that *might* contain references to toEl
-        var fromUris = Parser.potentialReferences(data.uri, data.name, isType(data.kind), data.flags);
-        // If it's too expensive to compute the code lens
-        if (fromUris.size() > 100) {
-            LOG.info(String.format("...counting %d files is too expensive", fromUris.size()));
-            return TOO_EXPENSIVE;
-        }
-        // Figure out what files need to be updated
-        var todo = new HashSet<URI>();
-        for (var fromUri : fromUris) {
-            if (cacheCountCrossReferences.needs(Paths.get(fromUri), data.signature)) {
-                todo.add(fromUri);
+        try {
+            LOG.info(String.format("...count cross-file references to `%s`...", data.name));
+            // Identify all files that *might* contain references to toEl
+            var fromUris = Parser.potentialReferences(data.uri, data.name, isType(data.kind), data.flags);
+            // If it's too expensive to compute the code lens
+            if (fromUris.size() > 100) {
+                LOG.info(String.format("...counting %d files is too expensive", fromUris.size()));
+                return TOO_EXPENSIVE;
             }
-        }
-        // Update the cache
-        if (!todo.isEmpty()) {
-            todo.add(data.uri);
-            LOG.info(String.format("...compile %d files", todo.size()));
-            var eraseCode = pruneWord(todo, data.name);
-            var countByFile = new HashMap<URI, Integer>();
-            try (var batch = compiler().compileBatch(eraseCode)) {
-                var fromPaths = batch.references(data.uri, data.line + 1, data.character + 1).orElse(List.of());
-                for (var fromPath : fromPaths) {
-                    var fromUri = fromPath.getCompilationUnit().getSourceFile().toUri();
-                    var newCount = countByFile.getOrDefault(fromUri, 0) + 1;
-                    countByFile.put(fromUri, newCount);
+            // Figure out what files need to be updated
+            var todo = new HashSet<URI>();
+            for (var fromUri : fromUris) {
+                if (cacheCountCrossReferences.needs(Paths.get(fromUri), data.signature)) {
+                    todo.add(fromUri);
                 }
             }
-            for (var fromUri : todo) {
-                var count = countByFile.getOrDefault(fromUri, 0);
-                // TODO consider not caching if fromUri contains errors
-                cacheCountCrossReferences.load(Paths.get(fromUri), data.signature, count);
+            // Update the cache
+            if (!todo.isEmpty()) {
+                todo.add(data.uri);
+                LOG.info(String.format("...compile %d files", todo.size()));
+                var eraseCode = pruneWord(todo, data.name);
+                var countByFile = new HashMap<URI, Integer>();
+                try (var batch = compiler().compileBatch(eraseCode)) {
+                    var fromPaths = batch.references(data.uri, data.line + 1, data.character + 1).orElse(List.of());
+                    for (var fromPath : fromPaths) {
+                        var fromUri = fromPath.getCompilationUnit().getSourceFile().toUri();
+                        var newCount = countByFile.getOrDefault(fromUri, 0) + 1;
+                        countByFile.put(fromUri, newCount);
+                    }
+                }
+                for (var fromUri : todo) {
+                    var count = countByFile.getOrDefault(fromUri, 0);
+                    // TODO consider not caching if fromUri contains errors
+                    cacheCountCrossReferences.load(Paths.get(fromUri), data.signature, count);
+                }
+                LOG.info(String.format("...found references in %d files", countByFile.size()));
             }
-            LOG.info(String.format("...found references in %d files", countByFile.size()));
+            // Sum up the count
+            var count = 0;
+            for (var fromUri : fromUris) {
+                if (fromUri.equals(data.uri)) continue;
+                count += cacheCountCrossReferences.get(Paths.get(fromUri), data.signature);
+            }
+            return count;
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
-        // Sum up the count
-        var count = 0;
-        for (var fromUri : fromUris) {
-            if (fromUri.equals(data.uri)) continue;
-            count += cacheCountCrossReferences.get(Paths.get(fromUri), data.signature);
-        }
-        return count;
     }
 
     private boolean isType(Tree.Kind kind) {
@@ -815,6 +848,8 @@ class JavaLanguageServer extends LanguageServer {
             // TODO replace var with type name when vars are copy-pasted into fields
             // TODO replace ThisClass.staticMethod() with staticMethod() when ThisClass is useless
             return edits;
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
     }
 

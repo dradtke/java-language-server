@@ -56,7 +56,7 @@ class CompileBatch implements AutoCloseable {
      * If the compilation failed because javac didn't find some package-private files in source files with different
      * names, list those source files.
      */
-    Set<Path> needsAdditionalSources() {
+    Set<Path> needsAdditionalSources() throws IOException {
         // Check for "class not found errors" that refer to package private classes
         var addFiles = new HashSet<Path>();
         for (var err : parent.diags) {
@@ -78,7 +78,7 @@ class CompileBatch implements AutoCloseable {
         return contents.substring(begin, end);
     }
 
-    private String packageName(javax.tools.Diagnostic<? extends javax.tools.JavaFileObject> err) {
+    private String packageName(javax.tools.Diagnostic<? extends javax.tools.JavaFileObject> err) throws IOException {
         var uri = err.getSource().toUri();
         var path = Paths.get(uri);
         return FileStore.packageName(path);
@@ -706,7 +706,7 @@ class CompileBatch implements AutoCloseable {
             boolean insideMethod,
             String partialName,
             boolean addParens,
-            boolean addSemi) {
+            boolean addSemi) throws IOException {
         LOG.info(String.format("Completing identifiers starting with `%s`...", partialName));
 
         var root = root(uri);
@@ -747,7 +747,7 @@ class CompileBatch implements AutoCloseable {
         return result;
     }
 
-    List<CompletionItem> completeAnnotations(URI uri, int line, int character, String partialName) {
+    List<CompletionItem> completeAnnotations(URI uri, int line, int character, String partialName) throws IOException {
         var result = new ArrayList<CompletionItem>();
         // Add @Override ... snippet
         if ("Override".startsWith(partialName)) {
@@ -774,7 +774,7 @@ class CompileBatch implements AutoCloseable {
     }
 
     /** Find all case options in the switch expression surrounding line:character */
-    List<CompletionItem> completeCases(URI uri, int line, int character) {
+    List<CompletionItem> completeCases(URI uri, int line, int character) throws IOException {
         var cursor = findPath(uri, line, character);
         LOG.info(String.format("Complete enum constants following `%s`...", cursor.getLeaf()));
         // Find surrounding switch
@@ -1269,7 +1269,7 @@ class CompileBatch implements AutoCloseable {
     }
 
     private List<CompletionItem> completeScopeIdentifiers(
-            URI uri, int line, int character, String partialName, boolean addParens, boolean addSemi) {
+            URI uri, int line, int character, String partialName, boolean addParens, boolean addSemi) throws IOException {
         var result = new ArrayList<CompletionItem>();
         var root = root(uri);
         // Add locals

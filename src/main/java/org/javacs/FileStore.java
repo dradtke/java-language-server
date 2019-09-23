@@ -2,6 +2,7 @@ package org.javacs;
 
 import java.io.*;
 import java.net.URI;
+import java.nio.charset.MalformedInputException;
 import java.nio.file.*;
 import java.nio.file.attribute.*;
 import java.time.Instant;
@@ -74,7 +75,13 @@ class FileStore {
                         @Override
                         public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
                             if (isJavaFile(file)) {
-                                readInfoFromDisk(file);
+                                try {
+                                    readInfoFromDisk(file);
+                                } catch (MalformedInputException e) {
+                                    LOG.warning("Malformed input for file: " + file.toFile().getAbsolutePath());
+                                } catch (IOException e) {
+                                    throw new RuntimeException(e);
+                                }
                             }
                             return FileVisitResult.CONTINUE;
                         }
@@ -128,7 +135,7 @@ class FileStore {
         return isJavaFile(file) && javaSources.containsKey(file);
     }
 
-    static Instant modified(Path file) {
+    static Instant modified(Path file) throws IOException {
         // If file is open, use last in-memory modification time
         if (activeDocuments.containsKey(file.toUri())) {
             return activeDocuments.get(file.toUri()).modified;
@@ -141,7 +148,7 @@ class FileStore {
         return javaSources.get(file).modified;
     }
 
-    static String packageName(Path file) {
+    static String packageName(Path file) throws IOException {
         // If we've never checked before, look up package name on disk
         if (!javaSources.containsKey(file)) {
             readInfoFromDisk(file);
@@ -150,7 +157,7 @@ class FileStore {
         return javaSources.get(file).packageName;
     }
 
-    static String suggestedPackageName(Path file) {
+    static String suggestedPackageName(Path file) throws IOException {
         // Look in each parent directory of file
         for (var dir = file.getParent(); dir != null; dir = dir.getParent()) {
             // Try to find a sibling with a package declaration
@@ -179,11 +186,11 @@ class FileStore {
         return list;
     }
 
-    static void externalCreate(Path file) {
+    static void externalCreate(Path file) throws IOException {
         readInfoFromDisk(file);
     }
 
-    static void externalChange(Path file) {
+    static void externalChange(Path file) throws IOException {
         readInfoFromDisk(file);
     }
 
@@ -191,14 +198,10 @@ class FileStore {
         javaSources.remove(file);
     }
 
-    private static void readInfoFromDisk(Path file) {
-        try {
-            var time = Files.getLastModifiedTime(file).toInstant();
-            var packageName = StringSearch.packageName(file);
-            javaSources.put(file, new Info(time, packageName));
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+    private static void readInfoFromDisk(Path file) throws IOException {
+      var time = Files.getLastModifiedTime(file).toInstant();
+      var packageName = StringSearch.packageName(file);
+      javaSources.put(file, new Info(time, packageName));
     }
 
     static void open(DidOpenTextDocumentParams params) {
@@ -346,7 +349,7 @@ class FileStore {
         return uri.getScheme().equals("file") && isJavaFile(Paths.get(uri));
     }
 
-    static Optional<Path> findDeclaringFile(String qualifiedName) {
+    static Optional<Path> findDeclaringFile(String qualifiedName) throws IOException {
         var packageName = StringSearch.mostName(qualifiedName);
         var className = StringSearch.lastName(qualifiedName);
         // Fast path: look for text `class Foo` in file Foo.java

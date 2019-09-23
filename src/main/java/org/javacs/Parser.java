@@ -1052,7 +1052,7 @@ class Parser {
         return prune(root, pos, buffer, offsets, false);
     }
 
-    static Set<URI> potentialDefinitions(Element to) {
+    static Set<URI> potentialDefinitions(Element to) throws IOException {
         LOG.info(String.format("Find potential definitions of `%s`...", to));
 
         // If `to` is private, any definitions must be in the same file
@@ -1086,7 +1086,7 @@ class Parser {
         }
     }
 
-    static Set<URI> potentialReferences(URI file, String name, boolean isType, Set<Modifier> flags) {
+    static Set<URI> potentialReferences(URI file, String name, boolean isType, Set<Modifier> flags) throws IOException {
         LOG.info(String.format("...find potential references to `%s`...", name));
         var pkg = FileStore.packageName(Paths.get(file));
 
@@ -1122,7 +1122,7 @@ class Parser {
         return matches;
     }
 
-    private static Optional<URI> declaringFile(Element e) {
+    private static Optional<URI> declaringFile(Element e) throws IOException {
         // Find top-level type surrounding `to`
         LOG.info(String.format("...looking up declaring file of `%s`...", e));
         var top = topLevelDeclaration(e);
@@ -1152,14 +1152,14 @@ class Parser {
     }
 
     /** Find the file `e` was declared in */
-    private static Optional<URI> findDeclaringFile(TypeElement e) {
+    private static Optional<URI> findDeclaringFile(TypeElement e) throws IOException {
         var name = e.getQualifiedName().toString();
         return FileStore.findDeclaringFile(name).map(Path::toUri);
     }
 
     private static Cache<String, Boolean> cacheContainsWord = new Cache<>();
 
-    private static List<Path> containsWord(Collection<Path> allFiles, String name) {
+    private static List<Path> containsWord(Collection<Path> allFiles, String name) throws IOException {
         // Figure out all files that need to be re-scanned
         var outOfDate = new ArrayList<Path>();
         for (var file : allFiles) {
@@ -1196,7 +1196,7 @@ class Parser {
 
     private static Cache<String, Boolean> cacheContainsImport = new Cache<>();
 
-    private static List<Path> containsImport(Collection<Path> allFiles, String toPackage, String toClass) {
+    private static List<Path> containsImport(Collection<Path> allFiles, String toPackage, String toClass) throws IOException {
         // Figure out which files import `to`, explicitly or implicitly
         var qName = toPackage.isEmpty() ? toClass : toPackage + "." + toClass;
         var hasImport = new ArrayList<Path>();
@@ -1243,7 +1243,7 @@ class Parser {
         return "";
     }
 
-    static String signature(TreePath t) {
+    static String signature(TreePath t) throws IOException {
         var uri = t.getCompilationUnit().getSourceFile().toUri();
         var packageName = FileStore.packageName(Paths.get(uri));
         var className = className(t);
