@@ -64,7 +64,7 @@ class FileStore {
                     new SimpleFileVisitor<Path>() {
                         @Override
                         public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
-                            if (attrs.isSymbolicLink()) {
+                            if (attrs.isSymbolicLink() || dir.toFile().isHidden()) {
                                 LOG.warning("Don't check " + dir + " for java sources");
                                 return FileVisitResult.SKIP_SUBTREE;
                             }
