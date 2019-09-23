@@ -1,10 +1,10 @@
 import * as Parser from 'web-tree-sitter';
 
-export function colorJava(root: Parser.SyntaxNode, visibleRanges: { start: number, end: number }[]): { [scope: string]: Parser.SyntaxNode[] } {
-	const colors: { [scope: string]: Parser.SyntaxNode[] } = {
-		'entity.name.type': [],
-		'entity.name.function': [],
-	};
+export type Range = {start: Parser.Point, end: Parser.Point}
+
+export function colorJava(root: Parser.SyntaxNode, visibleRanges: { start: number, end: number }[]): Map<string, Range[]> {
+	const functions: Range[] = []
+	const types: Range[] = []
 	let visitedChildren = false;
 	let cursor = root.walk();
 	let parents = [cursor.nodeType];
@@ -16,6 +16,7 @@ export function colorJava(root: Parser.SyntaxNode, visibleRanges: { start: numbe
 			} else if (cursor.gotoParent()) {
 				parents.pop();
 				visitedChildren = true;
+				continue;
 			} else {
 				break;
 			}
@@ -26,6 +27,7 @@ export function colorJava(root: Parser.SyntaxNode, visibleRanges: { start: numbe
 				visitedChildren = false;
 			} else {
 				visitedChildren = true;
+				continue;
 			}
 		}
 		// Skip nodes that are not visible
@@ -46,26 +48,29 @@ export function colorJava(root: Parser.SyntaxNode, visibleRanges: { start: numbe
 				const isTypeName = parent == 'class_declaration' && cursor.currentFieldName() == 'name'
 					|| parent == 'type_parameter';
 				if (isTypeName) {
-					colors['entity.name.type'].push(cursor.currentNode());
+					types.push({start: cursor.startPosition, end: cursor.endPosition})
 					break;
 				}
 				// If this identifier is the name in a method or constructor declaration
 				const isMethodName = parent == 'method_declaration' && cursor.currentFieldName() == 'name' ||
 					parent == 'constructor_declarator';
 				if (isMethodName) {
-					colors['entity.name.function'].push(cursor.currentNode());
+					functions.push({start: cursor.startPosition, end: cursor.endPosition})
 					break;
 				}
 				break;
 			case 'type_identifier':
 				if (cursor.currentNode().text != 'var') {
-					colors['entity.name.type'].push(cursor.currentNode()); // TODO use startPosition() / endPosition() instead of currentNode()
+					types.push({start: cursor.startPosition, end: cursor.endPosition})
 				}
 				break;
 		}
 	}
 	cursor.delete();
-	return colors;
+	return new Map([
+		['entity.name.function', functions],
+		['entity.name.type', types],
+	])
 }
 function isVisible(x: Parser.TreeCursor, visibleRanges: { start: number, end: number }[]) {
 	for (const { start, end } of visibleRanges) {

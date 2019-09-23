@@ -1,6 +1,6 @@
 import vscode = require('vscode');
-import {tree, decoration, range} from 'vscode-tree-sitter';
-import {colorJava} from './treeSitterColor';
+import {tree, decoration} from 'vscode-tree-sitter';
+import {colorJava, Range} from './treeSitterColor';
 
 export function color(editor: vscode.TextEditor) {
 	try {
@@ -16,13 +16,16 @@ export function color(editor: vscode.TextEditor) {
 			return;
 		}
 		const colors = colorJava(t.rootNode, visibleRanges);
-		for (const scope of Object.keys(colors)) {
+		for (const scope of colors.keys()) {
 			const dec = decoration(scope);
 			if (!dec) continue;
-			const ranges = colors[scope]!.map(range);
+			const ranges = colors.get(scope)!.map(range);
 			editor.setDecorations(dec, ranges);
 		}
 	} catch (e) {
 		console.error(e);
 	}
+}
+function range(x: Range): vscode.Range {
+	return new vscode.Range(x.start.row, x.start.column, x.end.row, x.end.column)
 }

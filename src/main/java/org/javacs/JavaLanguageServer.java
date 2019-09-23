@@ -36,7 +36,12 @@ class JavaLanguageServer extends LanguageServer {
         LOG.info("Lint " + uris.size() + " files...");
         var started = Instant.now();
         if (uris.isEmpty()) return;
-        try (var batch = compiler().compileUris(uris)) {
+        var sources = new ArrayList<SourceFileObject>();
+        for (var uri : uris) {
+            var source = new SourceFileObject(uri);
+            sources.add(source);
+        }
+        try (var batch = compiler().compileBatch(sources)) {
             var compiled = Instant.now();
             var elapsed = Duration.between(started, compiled).toMillis();
             LOG.info(String.format("...compiled in %d ms", elapsed));
@@ -436,7 +441,8 @@ class JavaLanguageServer extends LanguageServer {
         LOG.info(String.format("Hover over %s(%d,%d) ...", uri.getPath(), line, column));
         var started = Instant.now();
         // Compile entire file
-        try (var compile = compiler().compileFile(uri)) {
+        var sources = Set.of(new SourceFileObject(uri));
+        try (var compile = compiler().compileBatch(sources)) {
             // Find element under cursor
             var el = compile.element(uri, line, column);
             if (!el.isPresent()) {
@@ -485,7 +491,8 @@ class JavaLanguageServer extends LanguageServer {
         // Compile from-file and identify element under cursor
         LOG.info(String.format("Go-to-def at %s:%d...", fromUri, fromLine));
         Optional<Element> toEl;
-        try (var compile = compiler().compileFile(fromUri)) {
+        var sources = Set.of(new SourceFileObject(fromUri));
+        try (var compile = compiler().compileBatch(sources)) {
             toEl = compile.element(fromUri, fromLine, fromColumn);
             if (!toEl.isPresent()) {
                 LOG.info(String.format("...no element at cursor"));
@@ -530,7 +537,8 @@ class JavaLanguageServer extends LanguageServer {
         // Compile from-file and identify element under cursor
         LOG.warning(String.format("Looking for references to %s(%d,%d)...", toUri.getPath(), toLine, toColumn));
         Optional<Element> toEl;
-        try (var compile = compiler().compileFile(toUri)) {
+        var sources = Set.of(new SourceFileObject(toUri));
+        try (var compile = compiler().compileBatch(sources)) {
             toEl = compile.element(toUri, toLine, toColumn);
             if (!toEl.isPresent()) {
                 LOG.warning("...no element under cursor");
@@ -719,7 +727,8 @@ class JavaLanguageServer extends LanguageServer {
         LOG.info(String.format("...count all self-references in %s...", uri.getPath()));
         cacheSelfReferences.clear();
         updateCachedParse(uri);
-        try (var batch = compiler().compileFile(uri)) {
+        var sources = Set.of(new SourceFileObject(uri));
+        try (var batch = compiler().compileBatch(sources)) {
             for (var d : cacheParse.codeLensDeclarations()) {
                 if (!cacheParse.showReferencesCodeLens(d)) continue;
                 var range = cacheParse.range(d);
@@ -798,7 +807,8 @@ class JavaLanguageServer extends LanguageServer {
 
     @Override
     public List<TextEdit> formatting(DocumentFormattingParams params) {
-        try (var compile = compiler().compileFile(params.textDocument.uri)) {
+        var sources = Set.of(new SourceFileObject(params.textDocument.uri));
+        try (var compile = compiler().compileBatch(sources)) {
             var edits = new ArrayList<TextEdit>();
             edits.addAll(fixImports(compile, params.textDocument.uri));
             edits.addAll(addOverrides(compile, params.textDocument.uri));

@@ -4,6 +4,7 @@ import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 
 import java.net.URI;
+import java.util.Set;
 import org.junit.Test;
 
 public class PtrTest {
@@ -11,7 +12,7 @@ public class PtrTest {
     static JavaLanguageServer server = LanguageServerFixture.getJavaLanguageServer();
     static String file = "/org/javacs/example/Ptrs.java";
     static URI uri = FindResource.uri(file);
-    static CompileBatch compile = server.compiler().compileFile(uri);
+    static CompileBatch compile = server.compiler().compileBatch(Set.of(new SourceFileObject(uri)));
 
     @Test
     public void classPtr() {

@@ -86,18 +86,6 @@ class JavaCompilerService {
         return compileBatch(List.of(file));
     }
 
-    CompileBatch compileFile(URI uri) {
-        return compileUris(Collections.singleton(uri));
-    }
-
-    CompileBatch compileUris(Collection<URI> uris) {
-        if (uris.isEmpty()) throw new RuntimeException("No source files");
-        var files = new ArrayList<File>();
-        for (var p : uris) files.add(new File(p));
-        var sources = fileManager.getJavaFileObjectsFromFiles(files);
-        return compileBatch(sources);
-    }
-
     CompileBatch compileBatch(Collection<? extends JavaFileObject> sources) {
         var firstAttempt = new CompileBatch(this, sources);
         var addFiles = firstAttempt.needsAdditionalSources();

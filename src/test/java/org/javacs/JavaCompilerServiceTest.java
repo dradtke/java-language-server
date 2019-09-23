@@ -238,8 +238,8 @@ public class JavaCompilerServiceTest {
     @Test
     public void reportErrors() {
         var uri = resourceUri("HasError.java");
-        var files = Collections.singleton(uri);
-        var diags = compiler.compileUris(files).reportErrors();
+        var files = Collections.singleton(new SourceFileObject(uri));
+        var diags = compiler.compileBatch(files).reportErrors();
         assertThat(diags, not(empty()));
     }
 
@@ -262,8 +262,8 @@ public class JavaCompilerServiceTest {
     @Ignore
     public void errorProne() {
         var uri = resourceUri("ErrorProne.java");
-        var files = Collections.singleton(uri);
-        var diags = compiler.compileUris(files).reportErrors();
+        var files = Collections.singleton(new SourceFileObject(uri));
+        var diags = compiler.compileBatch(files).reportErrors();
         var strings = errorStrings(diags);
         assertThat(strings, hasItem(containsString("ErrorProne.java(7): [CollectionIncompatibleType]")));
     }
@@ -273,8 +273,8 @@ public class JavaCompilerServiceTest {
     @Ignore
     public void unusedVar() {
         var uri = resourceUri("UnusedVar.java");
-        var files = Collections.singleton(uri);
-        var diags = compiler.compileUris(files).reportErrors();
+        var files = Collections.singleton(new SourceFileObject(uri));
+        var diags = compiler.compileBatch(files).reportErrors();
         var strings = errorStrings(diags);
         assertThat(strings, hasItem(containsString("UnusedVar.java(3): [Unused]")));
     }
@@ -290,14 +290,14 @@ public class JavaCompilerServiceTest {
     @Test
     public void fixImports() {
         var uri = resourceUri("MissingImport.java");
-        var qualifiedNames = compiler.compileFile(uri).fixImports(uri);
+        var qualifiedNames = compiler.compileBatch(Set.of(new SourceFileObject(uri))).fixImports(uri);
         assertThat(qualifiedNames, hasItem("java.util.List"));
     }
 
     @Test
     public void dontImportEnum() {
         var uri = resourceUri("DontImportEnum.java");
-        var qualifiedNames = compiler.compileFile(uri).fixImports(uri);
+        var qualifiedNames = compiler.compileBatch(Set.of(new SourceFileObject(uri))).fixImports(uri);
         assertThat(qualifiedNames, contains("java.nio.file.AccessMode", "java.util.ArrayList"));
     }
 
